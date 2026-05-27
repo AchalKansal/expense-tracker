@@ -1,0 +1,39 @@
+# Built application files
+*.apk
+*.aab
+*.ap_
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+release/
+build/
+.gradle/
+
+# Gradle files
+.gradle/
+local.properties
+
+# Signing credentials — NEVER commit
+keystore.properties
+*.jks
+*.keystore
+
+# IntelliJ / Android Studio
+*.iml
+.idea/
+*.iws
+*.ipr
+
+# macOS
+.DS_Store
+
+# Store assets (optional: remove this line if you want to track them)
+# store-assets/

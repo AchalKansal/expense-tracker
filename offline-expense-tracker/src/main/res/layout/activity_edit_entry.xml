@@ -13,7 +13,7 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <Button
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/backButton"
             android:layout_width="48dp"
             android:layout_height="44dp"
@@ -91,7 +91,9 @@
                 android:layout_marginTop="12dp"
                 android:background="@drawable/type_toggle_background"
                 android:textAllCaps="false"
-                android:textStyle="bold" />
+                android:textStyle="bold"
+                android:elevation="0dp"
+                android:stateListAnimator="@null" />
 
             <EditText
                 android:id="@+id/amountInput"

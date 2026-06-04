@@ -5,6 +5,8 @@ import android.app.DatePickerDialog;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.text.TextUtils;
 import android.widget.ArrayAdapter;
@@ -18,8 +20,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 public class EditEntryActivity extends Activity {
@@ -121,9 +125,27 @@ public class EditEntryActivity extends Activity {
     }
 
     private void updateCategories(String type) {
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, databaseHelper.getCategories(type));
+        categorySpinner.setAdapter(makeThemedAdapter(databaseHelper.getCategories(type)));
+    }
+
+    private ArrayAdapter<String> makeThemedAdapter(List<String> items) {
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, items) {
+            @Override
+            public View getView(int position, View convertView, ViewGroup parent) {
+                View view = super.getView(position, convertView, parent);
+                ((TextView) view).setTextColor(theme.colorInk());
+                return view;
+            }
+            @Override
+            public View getDropDownView(int position, View convertView, ViewGroup parent) {
+                View view = super.getDropDownView(position, convertView, parent);
+                ((TextView) view).setTextColor(theme.colorInk());
+                view.setBackgroundColor(theme.colorSurface());
+                return view;
+            }
+        };
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        categorySpinner.setAdapter(adapter);
+        return adapter;
     }
 
     private void showDatePicker() {
@@ -209,11 +231,30 @@ public class EditEntryActivity extends Activity {
         saveButton.setTextColor(Color.WHITE);
         getWindow().setStatusBarColor(theme.colorBackground());
         getWindow().setNavigationBarColor(theme.colorBackground());
+        applyStatusBarAppearance();
+    }
+
+    private void applyStatusBarAppearance() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            int lightFlags = android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                    | android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+            getWindow().getInsetsController().setSystemBarsAppearance(
+                    darkMode ? 0 : lightFlags, lightFlags);
+        } else {
+            android.view.View decorView = getWindow().getDecorView();
+            int flags = decorView.getSystemUiVisibility();
+            if (darkMode) {
+                flags &= ~android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            } else {
+                flags |= android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            }
+            decorView.setSystemUiVisibility(flags);
+        }
     }
 
     private void styleToggle(TextView view) {
         boolean checked = view instanceof RadioButton && ((RadioButton) view).isChecked();
         view.setTextColor(checked ? Color.WHITE : theme.colorInk());
-        view.setBackground(checked ? theme.makeActiveToggleDrawable() : theme.makeInputDrawable());
+        view.setBackground(checked ? theme.makeActiveToggleDrawable() : theme.makeToggleDrawable());
     }
 }

@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TimeZone;
 
 final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "offline_expenses.db";
@@ -327,9 +328,10 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
     }
 
     List<DayTotal> getDailyTotals(String type, long startMillis, long endMillis) {
+        long tzOffsetMs = TimeZone.getDefault().getOffset(System.currentTimeMillis());
         List<DayTotal> totals = new ArrayList<>();
         Cursor cursor = getReadableDatabase().rawQuery(
-                "SELECT (created_at / 86400000) * 86400000 AS day_bucket, SUM(amount) AS total" +
+                "SELECT ((created_at + " + tzOffsetMs + ") / 86400000) * 86400000 - " + tzOffsetMs + " AS day_bucket, SUM(amount) AS total" +
                 " FROM " + TABLE_ENTRIES +
                 " WHERE type = ? AND created_at >= ? AND created_at < ?" +
                 " GROUP BY day_bucket ORDER BY day_bucket",

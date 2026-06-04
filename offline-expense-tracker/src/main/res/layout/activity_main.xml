@@ -36,17 +36,17 @@
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
-                    <Button
+                    <TextView
                         android:id="@+id/menuButton"
                         android:layout_width="44dp"
                         android:layout_height="44dp"
                         android:background="@drawable/type_toggle_background"
                         android:text="☰"
                         android:textSize="18sp"
-                        android:textAllCaps="false"
                         android:includeFontPadding="false"
-                        android:minWidth="0dp"
-                        android:minHeight="0dp"
+                        android:gravity="center"
+                        android:clickable="true"
+                        android:focusable="true"
                         android:padding="0dp" />
 
                     <LinearLayout
@@ -135,6 +135,7 @@
                         android:orientation="horizontal">
 
                         <LinearLayout
+                            android:id="@+id/todaySummaryCell"
                             android:layout_width="0dp"
                             android:layout_height="82dp"
                             android:layout_marginEnd="6dp"
@@ -163,6 +164,7 @@
                         </LinearLayout>
 
                         <LinearLayout
+                            android:id="@+id/monthSummaryCell"
                             android:layout_width="0dp"
                             android:layout_height="82dp"
                             android:layout_marginStart="6dp"
@@ -192,6 +194,7 @@
                         </LinearLayout>
 
                         <LinearLayout
+                            android:id="@+id/balanceSummaryCell"
                             android:layout_width="0dp"
                             android:layout_height="82dp"
                             android:layout_marginStart="6dp"
@@ -284,18 +287,19 @@
                             android:textColor="@color/ink"
                             android:textColorHint="@color/muted" />
 
-                        <Button
+                        <TextView
                             android:id="@+id/dateButton"
-                            android:layout_width="50dp"
+                            android:layout_width="wrap_content"
                             android:layout_height="50dp"
                             android:background="@drawable/type_toggle_background"
-                            android:text="📅"
-                            android:textSize="20sp"
-                            android:textAllCaps="false"
-                            android:includeFontPadding="false"
-                            android:minWidth="0dp"
-                            android:minHeight="0dp"
-                            android:padding="0dp" />
+                            android:text=""
+                            android:textSize="12sp"
+                            android:singleLine="true"
+                            android:gravity="center"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:paddingStart="14dp"
+                            android:paddingEnd="14dp" />
                     </LinearLayout>
 
                     <!-- Category chips (wrapping flow) -->

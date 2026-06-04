@@ -14,6 +14,7 @@ import android.text.TextWatcher;
 import android.text.Editable;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.widget.Button;
 import android.widget.ArrayAdapter;
@@ -129,16 +130,17 @@ public class HistoryActivity extends Activity {
     }
 
     private void setupFilters() {
-        ArrayAdapter<String> periodAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, PERIODS);
-        periodAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        periodSpinner.setAdapter(periodAdapter);
+        periodSpinner.setAdapter(makeThemedAdapter(new ArrayList<>(java.util.Arrays.asList(PERIODS))));
 
         List<String> categories = new ArrayList<>();
         categories.add("All categories");
-        categories.addAll(databaseHelper.getCategories(EntryTypes.EXPENSE));
-        ArrayAdapter<String> categoryAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, categories);
-        categoryAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        categoryFilterSpinner.setAdapter(categoryAdapter);
+        for (String cat : databaseHelper.getCategories(EntryTypes.EXPENSE)) {
+            if (!categories.contains(cat)) categories.add(cat);
+        }
+        for (String cat : databaseHelper.getCategories(EntryTypes.INCOME)) {
+            if (!categories.contains(cat)) categories.add(cat);
+        }
+        categoryFilterSpinner.setAdapter(makeThemedAdapter(categories));
 
         updateCustomDateButtons();
     }
@@ -200,7 +202,7 @@ public class HistoryActivity extends Activity {
     }
 
     private void renderHistory() {
-        List<ExpenseEntry> expenses = getFilteredExpenses();
+        List<ExpenseEntry> expenses = getFilteredEntries();
         historyContainer.removeAllViews();
         historyEmptyText.setVisibility(expenses.isEmpty() ? View.VISIBLE : View.GONE);
 
@@ -220,9 +222,10 @@ public class HistoryActivity extends Activity {
                 historyContainer.addView(monthGroup);
             }
 
-            monthTotal += entry.amount;
+            monthTotal += entry.isIncome() ? entry.amount : -entry.amount;
             if (monthTitle != null) {
-                monthTitle.setText(currentMonth + "  ·  " + moneyFormat.format(monthTotal));
+                String sign = monthTotal >= 0 ? "+" : "";
+                monthTitle.setText(currentMonth + "  ·  " + sign + moneyFormat.format(monthTotal));
             }
             if (monthGroup != null) {
                 monthGroup.addView(createEntryRow(entry));
@@ -313,9 +316,9 @@ public class HistoryActivity extends Activity {
         return wrapper;
     }
 
-    private List<ExpenseEntry> getFilteredExpenses() {
+    private List<ExpenseEntry> getFilteredEntries() {
         List<ExpenseEntry> filtered = new ArrayList<>();
-        List<ExpenseEntry> allExpenses = databaseHelper.getAllExpenses();
+        List<ExpenseEntry> allExpenses = databaseHelper.getAllEntries();
         String search = searchInput.getText().toString().trim().toLowerCase(Locale.US);
         String category = categoryFilterSpinner.getSelectedItem() == null
                 ? "All categories"
@@ -417,7 +420,7 @@ public class HistoryActivity extends Activity {
         }
         Uri uri = data.getData();
         if (requestCode == REQUEST_EXPORT_CSV) {
-            writeEntries(uri, getFilteredExpenses());
+            writeEntries(uri, getFilteredEntries());
         } else if (requestCode == REQUEST_BACKUP) {
             writeEntries(uri, databaseHelper.getAllEntries());
         } else if (requestCode == REQUEST_RESTORE) {
@@ -505,6 +508,26 @@ public class HistoryActivity extends Activity {
         }
         values.add(current.toString());
         return values.toArray(new String[0]);
+    }
+
+    private ArrayAdapter<String> makeThemedAdapter(List<String> items) {
+        ArrayAdapter<String> adapter = new ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, items) {
+            @Override
+            public View getView(int position, View convertView, ViewGroup parent) {
+                View view = super.getView(position, convertView, parent);
+                ((TextView) view).setTextColor(theme.colorInk());
+                return view;
+            }
+            @Override
+            public View getDropDownView(int position, View convertView, ViewGroup parent) {
+                View view = super.getDropDownView(position, convertView, parent);
+                ((TextView) view).setTextColor(theme.colorInk());
+                view.setBackgroundColor(theme.colorSurface());
+                return view;
+            }
+        };
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        return adapter;
     }
 
     private void applyTheme() {

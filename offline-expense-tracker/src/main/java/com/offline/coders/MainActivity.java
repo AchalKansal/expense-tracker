@@ -85,6 +85,9 @@ public class MainActivity extends Activity {
     private TextView viewAllText;
     private LinearLayout entriesContainer;
     private LinearLayout summaryCard;
+    private LinearLayout todaySummaryCell;
+    private LinearLayout monthSummaryCell;
+    private LinearLayout balanceSummaryCell;
 
     private LinearLayout entrySection;
     private LinearLayout chartSection;
@@ -105,8 +108,8 @@ public class MainActivity extends Activity {
     private CategoryChartView categoryChartView;
     // ADS: private FrameLayout adContainer;
     private Button addButton;
-    private Button menuButton;
-    private Button dateButton;
+    private TextView menuButton;
+    private TextView dateButton;
     private Switch themeSwitch;
     // ADS: private AdView adView;
 
@@ -170,6 +173,9 @@ public class MainActivity extends Activity {
         viewAllText = findViewById(R.id.viewAllText);
         entriesContainer = findViewById(R.id.entriesContainer);
         summaryCard = findViewById(R.id.summaryCard);
+        todaySummaryCell = findViewById(R.id.todaySummaryCell);
+        monthSummaryCell = findViewById(R.id.monthSummaryCell);
+        balanceSummaryCell = findViewById(R.id.balanceSummaryCell);
         entrySection = findViewById(R.id.entrySection);
         chartSection = findViewById(R.id.chartSection);
         categoryChipContainer = findViewById(R.id.categoryChipContainer);
@@ -348,6 +354,7 @@ public class MainActivity extends Activity {
     }
 
     private void setupDatePicker() {
+        updateDateButtonLabel();
         dateButton.setOnClickListener(view -> {
             Calendar calendar = Calendar.getInstance();
             calendar.setTimeInMillis(selectedEntryDateMillis);
@@ -360,6 +367,7 @@ public class MainActivity extends Activity {
                         selected.set(Calendar.MONTH, month);
                         selected.set(Calendar.DAY_OF_MONTH, dayOfMonth);
                         selectedEntryDateMillis = selected.getTimeInMillis();
+                        updateDateButtonLabel();
                     },
                     calendar.get(Calendar.YEAR),
                     calendar.get(Calendar.MONTH),
@@ -367,6 +375,12 @@ public class MainActivity extends Activity {
             );
             dialog.show();
         });
+    }
+
+    private void updateDateButtonLabel() {
+        String label = new SimpleDateFormat("d MMM", Locale.getDefault()).format(new Date(selectedEntryDateMillis));
+        dateButton.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        dateButton.setText(label);
     }
 
     private void setupDrawer() {
@@ -514,7 +528,6 @@ public class MainActivity extends Activity {
         databaseHelper.addEntry(type, amount, selectedCategory, note, selectedEntryDateMillis);
         amountInput.setText("");
         noteInput.setText("");
-        selectedEntryDateMillis = System.currentTimeMillis();
         typeGroup.check(R.id.expenseRadio);
         hideKeyboard();
         refreshDashboard();
@@ -673,6 +686,9 @@ public class MainActivity extends Activity {
         themeSwitch.setTextColor(ink);
 
         summaryCard.setBackground(theme.makeCardDrawable());
+        todaySummaryCell.setBackground(theme.makeInputDrawable());
+        monthSummaryCell.setBackground(theme.makeInputDrawable());
+        balanceSummaryCell.setBackground(theme.makeInputDrawable());
         entrySection.setBackground(theme.makeCardDrawable());
         chartSection.setBackground(theme.makeCardDrawable());
         privacyInfoText.setBackground(theme.makeCardDrawable());
@@ -720,6 +736,7 @@ public class MainActivity extends Activity {
         // Date button — icon only, no active gradient
         dateButton.setTextColor(theme.colorInk());
         dateButton.setBackground(theme.makeToggleDrawable());
+        updateDateButtonLabel();
 
         // Chip styles refresh
         refreshChipStyles();

@@ -7,15 +7,15 @@ def keystoreProperties = new Properties()
 keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 
 android {
-    namespace 'com.offline.coders'
+    namespace 'com.offline.expense'
     compileSdk 35
 
     defaultConfig {
-        applicationId "com.offline.coders"
+        applicationId "com.offline.expense"
         minSdk 24
         targetSdk 35
-        versionCode 1
-        versionName "1.0"
+        versionCode 3
+        versionName "1.2"
     }
 
     signingConfigs {

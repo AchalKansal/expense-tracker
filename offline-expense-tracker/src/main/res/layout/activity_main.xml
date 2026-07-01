@@ -303,7 +303,7 @@
                     </LinearLayout>
 
                     <!-- Category chips (wrapping flow) -->
-                    <com.offline.coders.FlowLayout
+                    <com.offline.expense.FlowLayout
                         android:id="@+id/categoryChipContainer"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -421,7 +421,7 @@
                             android:textStyle="bold" />
                     </RadioGroup>
 
-                    <com.offline.coders.CategoryChartView
+                    <com.offline.expense.CategoryChartView
                         android:id="@+id/categoryChartView"
                         android:layout_width="match_parent"
                         android:layout_height="230dp"

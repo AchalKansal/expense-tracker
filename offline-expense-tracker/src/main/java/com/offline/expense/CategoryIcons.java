@@ -1,4 +1,4 @@
-package com.offline.coders;
+package com.offline.expense;
 
 final class CategoryIcons {
     private CategoryIcons() {}

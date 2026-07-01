@@ -1,4 +1,4 @@
-package com.offline.coders;
+package com.offline.expense;
 
 import android.content.ContentValues;
 import android.content.Context;

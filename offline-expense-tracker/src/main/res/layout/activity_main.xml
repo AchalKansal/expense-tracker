@@ -315,7 +315,7 @@
                         android:layout_height="50dp"
                         android:layout_marginTop="10dp"
                         android:background="@drawable/input_background"
-                        android:hint="Note optional"
+                        android:hint="Description"
                         android:inputType="textCapSentences"
                         android:maxLines="1"
                         android:textColor="@color/ink"

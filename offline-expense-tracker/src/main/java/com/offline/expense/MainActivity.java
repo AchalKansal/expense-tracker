@@ -44,6 +44,8 @@ import java.util.Locale;
 public class MainActivity extends Activity {
     private static final String PREFS_NAME = "expense_tracker_prefs";
     private static final String KEY_DARK_MODE = "dark_mode";
+    private static final String KEY_SMS_AUTO_DETECT = SmsReceiver.KEY_SMS_AUTO_DETECT;
+    private static final int REQUEST_SMS_PERMISSIONS = 3001;
     // ADS: private static final String TEST_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/9214589741";
 
     private ExpenseDatabaseHelper databaseHelper;
@@ -65,6 +67,10 @@ public class MainActivity extends Activity {
     private TextView drawerHistoryItem;
     private TextView drawerManageCategoriesItem;
     private TextView drawerViewAllText;
+    private LinearLayout drawerSmsItem;
+    private TextView drawerSmsItemText;
+    private TextView drawerSmsBadge;
+    private Switch smsAutoDetectSwitch;
 
     private LinearLayout mainRoot;
     private ScrollView rootScroll;
@@ -76,8 +82,8 @@ public class MainActivity extends Activity {
     private TextView todaySpentText;
     private TextView monthLabelText;
     private TextView monthSpentText;
-    private TextView balanceLabelText;
-    private TextView balanceStatText;
+    private TextView paceLabelText;
+    private TextView paceValueText;
     private TextView emptyText;
     private TextView recentEntriesTitle;
     private TextView chartTitleText;
@@ -87,10 +93,21 @@ public class MainActivity extends Activity {
     private LinearLayout summaryCard;
     private LinearLayout todaySummaryCell;
     private LinearLayout monthSummaryCell;
-    private LinearLayout balanceSummaryCell;
+    private LinearLayout paceSummaryCell;
 
     private LinearLayout entrySection;
     private LinearLayout chartSection;
+    private LinearLayout paceInsightCard;
+    private TextView paceHeadingText;
+    private TextView paceBadgeText;
+    private TextView paceFigureText;
+    private TextView paceFigureCaption;
+    private PaceBarView paceBarView;
+    private LinearLayout paceCaptionRow;
+    private TextView paceSpentCaption;
+    private TextView paceAvgCaption;
+    private TextView paceDayCaption;
+    private TextView paceEmptyText;
     private FlowLayout categoryChipContainer;
     private RadioGroup mainTabGroup;
     private RadioGroup typeGroup;
@@ -139,6 +156,7 @@ public class MainActivity extends Activity {
         setupChartControls();
         setupThemeToggle();
         setupDrawer();
+        setupSmsAutoDetect();
         // ADS: setupBottomBannerAd();
         refreshDashboard();
     }
@@ -153,6 +171,10 @@ public class MainActivity extends Activity {
         drawerHistoryItem = findViewById(R.id.drawerHistoryItem);
         drawerManageCategoriesItem = findViewById(R.id.drawerManageCategoriesItem);
         drawerViewAllText = findViewById(R.id.drawerViewAllText);
+        drawerSmsItem = findViewById(R.id.drawerSmsItem);
+        drawerSmsItemText = findViewById(R.id.drawerSmsItemText);
+        drawerSmsBadge = findViewById(R.id.drawerSmsBadge);
+        smsAutoDetectSwitch = findViewById(R.id.smsAutoDetectSwitch);
 
         mainRoot = findViewById(R.id.mainRoot);
         rootScroll = findViewById(R.id.rootScroll);
@@ -164,8 +186,8 @@ public class MainActivity extends Activity {
         todaySpentText = findViewById(R.id.todaySpentText);
         monthLabelText = findViewById(R.id.monthLabelText);
         monthSpentText = findViewById(R.id.monthSpentText);
-        balanceLabelText = findViewById(R.id.balanceLabelText);
-        balanceStatText = findViewById(R.id.budgetStatusText);
+        paceLabelText = findViewById(R.id.paceLabelText);
+        paceValueText = findViewById(R.id.paceValueText);
         emptyText = findViewById(R.id.emptyText);
         recentEntriesTitle = findViewById(R.id.recentEntriesTitle);
         chartTitleText = findViewById(R.id.chartTitleText);
@@ -175,9 +197,20 @@ public class MainActivity extends Activity {
         summaryCard = findViewById(R.id.summaryCard);
         todaySummaryCell = findViewById(R.id.todaySummaryCell);
         monthSummaryCell = findViewById(R.id.monthSummaryCell);
-        balanceSummaryCell = findViewById(R.id.balanceSummaryCell);
+        paceSummaryCell = findViewById(R.id.paceSummaryCell);
         entrySection = findViewById(R.id.entrySection);
         chartSection = findViewById(R.id.chartSection);
+        paceInsightCard = findViewById(R.id.paceInsightCard);
+        paceHeadingText = findViewById(R.id.paceHeadingText);
+        paceBadgeText = findViewById(R.id.paceBadgeText);
+        paceFigureText = findViewById(R.id.paceFigureText);
+        paceFigureCaption = findViewById(R.id.paceFigureCaption);
+        paceBarView = findViewById(R.id.paceBarView);
+        paceCaptionRow = findViewById(R.id.paceCaptionRow);
+        paceSpentCaption = findViewById(R.id.paceSpentCaption);
+        paceAvgCaption = findViewById(R.id.paceAvgCaption);
+        paceDayCaption = findViewById(R.id.paceDayCaption);
+        paceEmptyText = findViewById(R.id.paceEmptyText);
         categoryChipContainer = findViewById(R.id.categoryChipContainer);
         mainTabGroup = findViewById(R.id.mainTabGroup);
         typeGroup = findViewById(R.id.typeGroup);
@@ -412,9 +445,97 @@ public class MainActivity extends Activity {
             drawerLayout.closeDrawer(drawerScroll);
             startActivity(new Intent(this, HistoryActivity.class));
         });
+
+        drawerSmsItem.setOnClickListener(v -> {
+            drawerLayout.closeDrawer(drawerScroll);
+            startActivity(new Intent(this, SmsReviewActivity.class));
+        });
+    }
+
+    private void setupSmsAutoDetect() {
+        smsAutoDetectSwitch.setChecked(preferences.getBoolean(KEY_SMS_AUTO_DETECT, false));
+        smsAutoDetectSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                requestSmsPermissionsAndEnable();
+            } else {
+                preferences.edit().putBoolean(KEY_SMS_AUTO_DETECT, false).apply();
+            }
+        });
+    }
+
+    private void requestSmsPermissionsAndEnable() {
+        List<String> missing = new ArrayList<>();
+        for (String permission : smsPermissionsNeeded()) {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(this, permission)
+                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                missing.add(permission);
+            }
+        }
+        if (missing.isEmpty()) {
+            preferences.edit().putBoolean(KEY_SMS_AUTO_DETECT, true).apply();
+            return;
+        }
+        showSmsPermissionRationale(missing.toArray(new String[0]));
+    }
+
+    private void showSmsPermissionRationale(String[] permissionsToRequest) {
+        new android.app.AlertDialog.Builder(this)
+                .setTitle("Read SMS for transactions?")
+                .setMessage("If you allow this, the app will read your SMS messages on this device only, " +
+                        "looking for bank/UPI transaction alerts (amount debited/credited) to suggest as " +
+                        "expense entries for you to review before anything is added. Messages are never " +
+                        "uploaded or sent anywhere — this app has no internet access. You can turn this " +
+                        "off anytime from this menu.")
+                .setPositiveButton("Allow", (dialog, which) -> androidx.core.app.ActivityCompat.requestPermissions(
+                        this, permissionsToRequest, REQUEST_SMS_PERMISSIONS))
+                .setNegativeButton("Not now", (dialog, which) -> smsAutoDetectSwitch.setChecked(false))
+                .setOnCancelListener(dialog -> smsAutoDetectSwitch.setChecked(false))
+                .show();
+    }
+
+    private String[] smsPermissionsNeeded() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            return new String[]{
+                    android.Manifest.permission.RECEIVE_SMS,
+                    android.Manifest.permission.READ_SMS,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+            };
+        }
+        return new String[]{
+                android.Manifest.permission.RECEIVE_SMS,
+                android.Manifest.permission.READ_SMS
+        };
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_SMS_PERMISSIONS) return;
+
+        boolean allGranted = grantResults.length > 0;
+        for (int result : grantResults) {
+            if (result != android.content.pm.PackageManager.PERMISSION_GRANTED) allGranted = false;
+        }
+        if (allGranted) {
+            preferences.edit().putBoolean(KEY_SMS_AUTO_DETECT, true).apply();
+        } else {
+            smsAutoDetectSwitch.setChecked(false);
+            Toast.makeText(this, "SMS permissions are needed to auto-detect transactions", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void updateSmsBadge() {
+        int count = databaseHelper.getPendingSmsSuggestionCount();
+        if (count > 0) {
+            drawerSmsBadge.setText(String.valueOf(count));
+            drawerSmsBadge.setVisibility(View.VISIBLE);
+        } else {
+            drawerSmsBadge.setVisibility(View.GONE);
+        }
     }
 
     private void updateDrawerEntries() {
+        updateSmsBadge();
         drawerEntriesContainer.removeAllViews();
         List<ExpenseEntry> entries = databaseHelper.getRecentEntries(5);
         if (entries.isEmpty()) {
@@ -535,10 +656,6 @@ public class MainActivity extends Activity {
     }
 
     private void refreshDashboard() {
-        double totalIncome = databaseHelper.getTotalForType(EntryTypes.INCOME);
-        double totalExpense = databaseHelper.getTotalForType(EntryTypes.EXPENSE);
-        double balance = totalIncome - totalExpense;
-
         long dayStart = getStartOfDay();
         long monthStart = getStartOfMonth();
         double todayExpense = databaseHelper.getTotalForTypeSince(EntryTypes.EXPENSE, dayStart);
@@ -546,11 +663,87 @@ public class MainActivity extends Activity {
 
         todaySpentText.setText(moneyFormat.format(todayExpense));
         monthSpentText.setText(moneyFormat.format(monthExpense));
-        balanceStatText.setText(moneyFormat.format(balance));
-        balanceStatText.setTextColor(balance >= 0 ? getColor(R.color.income) : getColor(R.color.expense));
+        updateSpendingPace(monthStart, monthExpense);
 
-        renderEntries(databaseHelper.getRecentEntries(30));
+        renderEntries(databaseHelper.getRecentEntries(10));
         refreshChart();
+    }
+
+    /**
+     * "Estimated spend" run-rate projection: extends this month's daily spending rate to
+     * month-end, then benchmarks it against the trailing 1-3 months of full history
+     * (however many are available) instead of a manually configured budget.
+     */
+    private void updateSpendingPace(long monthStart, double monthExpense) {
+        Calendar now = Calendar.getInstance();
+        int daysElapsed = now.get(Calendar.DAY_OF_MONTH);
+        int daysInMonth = now.getActualMaximum(Calendar.DAY_OF_MONTH);
+        double projected = daysElapsed > 0 ? (monthExpense / daysElapsed) * daysInMonth : monthExpense;
+
+        Double average = getTrailingMonthlyAverage(monthStart);
+        boolean hasHistory = average != null;
+
+        int statusColor = theme.colorPrimary();
+        double delta = 0.0;
+        if (hasHistory) {
+            delta = average > 0 ? (projected - average) / average : (projected > 0 ? 1.0 : 0.0);
+            if (delta <= 0) statusColor = getColor(R.color.income);
+            else if (delta <= 0.20) statusColor = getColor(R.color.warning);
+            else statusColor = getColor(R.color.expense);
+        }
+
+        paceValueText.setText(moneyFormat.format(projected));
+        paceValueText.setTextColor(statusColor);
+
+        paceEmptyText.setVisibility(hasHistory ? View.GONE : View.VISIBLE);
+        paceBadgeText.setVisibility(hasHistory ? View.VISIBLE : View.GONE);
+        paceBarView.setVisibility(hasHistory ? View.VISIBLE : View.GONE);
+        paceCaptionRow.setVisibility(hasHistory ? View.VISIBLE : View.GONE);
+
+        if (!hasHistory) return;
+
+        String sign = delta >= 0 ? "+" : "";
+        paceBadgeText.setText(sign + Math.round(delta * 100) + "% vs avg");
+        paceBadgeText.setBackground(theme.makeBadgeDrawable(statusColor));
+
+        double scaleMax = Math.max(projected, average) * 1.15;
+        float spentFraction = scaleMax > 0 ? (float) (monthExpense / scaleMax) : 0f;
+        float projectedFraction = scaleMax > 0 ? (float) (projected / scaleMax) : 0f;
+        float tickFraction = scaleMax > 0 ? (float) (average / scaleMax) : -1f;
+        paceBarView.setData(spentFraction, projectedFraction, tickFraction, statusColor);
+
+        paceSpentCaption.setText(moneyFormat.format(monthExpense) + " spent");
+        paceAvgCaption.setText("avg " + moneyFormat.format(average));
+        paceDayCaption.setText("Day " + daysElapsed + "/" + daysInMonth);
+    }
+
+    /**
+     * Average of full-month expense totals for as many of the last 3 calendar
+     * months as the user has history for. Returns null if the app's first entry
+     * was logged this month (no prior full month to compare against yet).
+     */
+    private Double getTrailingMonthlyAverage(long currentMonthStart) {
+        Long firstEntry = databaseHelper.getFirstEntryTimestamp();
+        if (firstEntry == null) return null;
+        long firstEntryMonthStart = getStartOfMonth(firstEntry);
+
+        Calendar cursor = Calendar.getInstance();
+        cursor.setTimeInMillis(currentMonthStart);
+
+        List<Double> monthTotals = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            cursor.add(Calendar.MONTH, -1);
+            long start = cursor.getTimeInMillis();
+            if (start < firstEntryMonthStart) break;
+            Calendar end = (Calendar) cursor.clone();
+            end.add(Calendar.MONTH, 1);
+            monthTotals.add(databaseHelper.getTotalForTypeBetween(EntryTypes.EXPENSE, start, end.getTimeInMillis()));
+        }
+
+        if (monthTotals.isEmpty()) return null;
+        double sum = 0.0;
+        for (double total : monthTotals) sum += total;
+        return sum / monthTotals.size();
     }
 
     private void refreshChart() {
@@ -688,9 +881,11 @@ public class MainActivity extends Activity {
         summaryCard.setBackground(theme.makeCardDrawable());
         todaySummaryCell.setBackground(theme.makeInputDrawable());
         monthSummaryCell.setBackground(theme.makeInputDrawable());
-        balanceSummaryCell.setBackground(theme.makeInputDrawable());
+        paceSummaryCell.setBackground(theme.makeInputDrawable());
         entrySection.setBackground(theme.makeCardDrawable());
         chartSection.setBackground(theme.makeCardDrawable());
+        paceInsightCard.setBackground(theme.makeInputDrawable());
+        paceBarView.setThemeColors(theme.colorBorder(), ink);
         privacyInfoText.setBackground(theme.makeCardDrawable());
         privacyInfoText.setPadding(theme.dp(12), theme.dp(12), theme.dp(12), theme.dp(12));
         // ADS: adContainer.setBackgroundColor(theme.colorSurface());
@@ -703,15 +898,20 @@ public class MainActivity extends Activity {
         drawerHistoryItem.setTextColor(ink);
         drawerManageCategoriesItem.setTextColor(ink);
         drawerViewAllText.setTextColor(theme.colorAccent());
+        drawerSmsItemText.setTextColor(ink);
+        drawerSmsBadge.setBackground(theme.makeBadgeDrawable(getColor(R.color.expense)));
+        smsAutoDetectSwitch.setTextColor(ink);
 
         TextView[] inkViews = {
-                titleText, todaySpentText, monthSpentText, recentEntriesTitle, chartTitleText
+                titleText, todaySpentText, monthSpentText, recentEntriesTitle, chartTitleText,
+                paceHeadingText, paceFigureText
         };
         for (TextView v : inkViews) v.setTextColor(ink);
 
         TextView[] mutedViews = {
                 subtitleText, chartSummaryText, emptyText, privacyInfoText,
-                todayLabelText, monthLabelText, balanceLabelText
+                todayLabelText, monthLabelText, paceLabelText,
+                paceFigureCaption, paceSpentCaption, paceAvgCaption, paceDayCaption, paceEmptyText
         };
         for (TextView v : mutedViews) v.setTextColor(muted);
 
@@ -786,7 +986,12 @@ public class MainActivity extends Activity {
     }
 
     private long getStartOfMonth() {
+        return getStartOfMonth(System.currentTimeMillis());
+    }
+
+    private long getStartOfMonth(long millis) {
         Calendar c = Calendar.getInstance();
+        c.setTimeInMillis(millis);
         c.set(Calendar.DAY_OF_MONTH, 1);
         c.set(Calendar.HOUR_OF_DAY, 0);
         c.set(Calendar.MINUTE, 0);
@@ -851,6 +1056,7 @@ public class MainActivity extends Activity {
         buildCategoryChips(type);
         applyTheme();
         refreshDashboard();
+        updateSmsBadge();
     }
 
     @Override

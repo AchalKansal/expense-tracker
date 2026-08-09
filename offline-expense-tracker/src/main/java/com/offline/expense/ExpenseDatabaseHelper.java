@@ -15,9 +15,10 @@ import java.util.TimeZone;
 
 final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "offline_expenses.db";
-    private static final int DATABASE_VERSION = 4;
+    private static final int DATABASE_VERSION = 5;
     private static final String TABLE_ENTRIES = "entries";
     private static final String TABLE_CATEGORIES = "categories";
+    private static final String TABLE_SMS_SUGGESTIONS = "sms_suggestions";
 
     private static final String[] DEFAULT_EXPENSE_CATEGORIES = {
             "Food", "Transport", "Shopping", "Bills", "Health", "Rent", "Family", "Investment", "Other"
@@ -43,6 +44,7 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
     public void onCreate(SQLiteDatabase db) {
         createEntriesTable(db);
         createCategoriesTable(db);
+        createSmsSuggestionsTable(db);
         seedDefaultCategories(db);
     }
 
@@ -57,6 +59,9 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 4) {
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_entries_type_date ON " + TABLE_ENTRIES + "(type, created_at)");
+        }
+        if (oldVersion < 5) {
+            createSmsSuggestionsTable(db);
         }
     }
 
@@ -78,6 +83,19 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
                 "type TEXT NOT NULL, " +
                 "name TEXT NOT NULL, " +
                 "UNIQUE(type, name)" +
+                ")");
+    }
+
+    private void createSmsSuggestionsTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_SMS_SUGGESTIONS + " (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "type TEXT NOT NULL, " +
+                "amount REAL NOT NULL, " +
+                "category TEXT NOT NULL, " +
+                "note TEXT, " +
+                "sender TEXT, " +
+                "sms_time INTEGER NOT NULL, " +
+                "dedupe_key TEXT UNIQUE" +
                 ")");
     }
 
@@ -140,6 +158,64 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
         } finally {
             cursor.close();
         }
+    }
+
+    long addSmsSuggestion(String type, double amount, String category, String note, String sender, long smsTime, String dedupeKey) {
+        ContentValues values = new ContentValues();
+        values.put("type", type);
+        values.put("amount", amount);
+        values.put("category", category);
+        values.put("note", note);
+        values.put("sender", sender);
+        values.put("sms_time", smsTime);
+        values.put("dedupe_key", dedupeKey);
+        return getWritableDatabase().insertWithOnConflict(
+                TABLE_SMS_SUGGESTIONS, null, values, SQLiteDatabase.CONFLICT_IGNORE);
+    }
+
+    void deleteSmsSuggestion(long id) {
+        getWritableDatabase().delete(TABLE_SMS_SUGGESTIONS, "id = ?", new String[]{String.valueOf(id)});
+    }
+
+    int getPendingSmsSuggestionCount() {
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT COUNT(*) FROM " + TABLE_SMS_SUGGESTIONS, null);
+        try {
+            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
+        } finally {
+            cursor.close();
+        }
+    }
+
+    List<SmsSuggestion> getPendingSmsSuggestions() {
+        List<SmsSuggestion> suggestions = new ArrayList<>();
+        Cursor cursor = getReadableDatabase().query(
+                TABLE_SMS_SUGGESTIONS,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "sms_time DESC, id DESC"
+        );
+
+        try {
+            while (cursor.moveToNext()) {
+                suggestions.add(new SmsSuggestion(
+                        cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                        cursor.getString(cursor.getColumnIndexOrThrow("type")),
+                        cursor.getDouble(cursor.getColumnIndexOrThrow("amount")),
+                        cursor.getString(cursor.getColumnIndexOrThrow("category")),
+                        cursor.getString(cursor.getColumnIndexOrThrow("note")),
+                        cursor.getString(cursor.getColumnIndexOrThrow("sender")),
+                        cursor.getLong(cursor.getColumnIndexOrThrow("sms_time"))
+                ));
+            }
+        } finally {
+            cursor.close();
+        }
+
+        return suggestions;
     }
 
     void addCategory(String type, String name) {
@@ -299,6 +375,48 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
                 return cursor.isNull(0) ? 0.0 : cursor.getDouble(0);
             }
             return 0.0;
+        } finally {
+            cursor.close();
+        }
+    }
+
+    double getTotalForTypeBetween(String type, long startMillis, long endMillis) {
+        Cursor cursor = getReadableDatabase().query(
+                TABLE_ENTRIES,
+                new String[]{"SUM(amount) AS total"},
+                "type = ? AND created_at >= ? AND created_at < ?",
+                new String[]{type, String.valueOf(startMillis), String.valueOf(endMillis)},
+                null,
+                null,
+                null
+        );
+
+        try {
+            if (cursor.moveToFirst()) {
+                return cursor.isNull(0) ? 0.0 : cursor.getDouble(0);
+            }
+            return 0.0;
+        } finally {
+            cursor.close();
+        }
+    }
+
+    Long getFirstEntryTimestamp() {
+        Cursor cursor = getReadableDatabase().query(
+                TABLE_ENTRIES,
+                new String[]{"MIN(created_at) AS first_at"},
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        try {
+            if (cursor.moveToFirst() && !cursor.isNull(0)) {
+                return cursor.getLong(0);
+            }
+            return null;
         } finally {
             cursor.close();
         }

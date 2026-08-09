@@ -24,7 +24,7 @@ public class CategoryChartView extends View {
     static final int MODE_TREND = 1;
 
     private final Paint slicePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint holePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint ringTrackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -46,13 +46,15 @@ public class CategoryChartView extends View {
     private int mutedColor = Color.rgb(109, 113, 120);
     private int surfaceColor = Color.WHITE;
     private int mode = MODE_DONUT;
+    private static final int DONUT_NAMED_SLICES = 5;
+    // Validated categorical order (dataviz skill reference palette, slots 1-5) —
+    // passes adjacent-pair CVD separation including the ring's wraparound pair.
     private final int[] sliceColors = {
-            Color.rgb(37, 99, 235),
-            Color.rgb(14, 165, 233),
-            Color.rgb(30, 142, 90),
-            Color.rgb(194, 65, 53),
-            Color.rgb(139, 92, 246),
-            Color.rgb(245, 158, 11)
+            Color.rgb(0x2a, 0x78, 0xd6), // blue
+            Color.rgb(0xeb, 0x68, 0x34), // orange
+            Color.rgb(0x1b, 0xaf, 0x7a), // aqua
+            Color.rgb(0xed, 0xa1, 0x00), // yellow
+            Color.rgb(0xe8, 0x7b, 0xa4)  // magenta
     };
 
     public CategoryChartView(Context context) {
@@ -66,6 +68,11 @@ public class CategoryChartView extends View {
     }
 
     private void init() {
+        slicePaint.setStyle(Paint.Style.STROKE);
+        slicePaint.setStrokeCap(Paint.Cap.ROUND);
+
+        ringTrackPaint.setStyle(Paint.Style.STROKE);
+
         linePaint.setStyle(Paint.Style.STROKE);
         linePaint.setStrokeWidth(dp(2.5f));
         linePaint.setStrokeCap(Paint.Cap.ROUND);
@@ -105,12 +112,12 @@ public class CategoryChartView extends View {
     private void applyColors() {
         linePaint.setColor(accentColor);
         dotPaint.setColor(accentColor);
-        holePaint.setColor(surfaceColor);
         labelPaint.setColor(labelColor);
         mutedLabelPaint.setColor(mutedColor);
         centerTextPaint.setColor(labelColor);
         emptyPaint.setColor(mutedColor);
         gridPaint.setColor(Color.argb(50, Color.red(mutedColor), Color.green(mutedColor), Color.blue(mutedColor)));
+        ringTrackPaint.setColor(Color.argb(40, Color.red(mutedColor), Color.green(mutedColor), Color.blue(mutedColor)));
 
         int r = Color.red(accentColor), g = Color.green(accentColor), b = Color.blue(accentColor);
         fillPaint.setColor(Color.argb(50, r, g, b));
@@ -155,28 +162,41 @@ public class CategoryChartView extends View {
     // ── Donut chart ──────────────────────────────────────────────────────────
 
     private void drawDonutChart(Canvas canvas) {
-        int visibleCount = Math.min(data.size(), 6);
+        List<CategoryTotal> slices = buildDonutSlices();
         double totalAmount = 0.0;
-        for (int i = 0; i < visibleCount; i++) totalAmount += data.get(i).total;
+        for (CategoryTotal ct : slices) totalAmount += ct.total;
+        if (totalAmount <= 0.0) return;
+
+        int n = slices.size();
+        boolean hasOtherBucket = data.size() > DONUT_NAMED_SLICES;
 
         float size = Math.min(getWidth() * 0.44f, getHeight() - dp(24));
         float cx = dp(8) + size / 2f;
         float cy = getHeight() / 2f;
         float outerR = size / 2f;
-        float innerR = outerR * 0.52f;
+        float innerR = outerR * 0.64f;
+        float bandWidth = outerR - innerR;
+        float ringR = (outerR + innerR) / 2f;
 
-        donutRect.set(cx - outerR, cy - outerR, cx + outerR, cy + outerR);
+        donutRect.set(cx - ringR, cy - ringR, cx + ringR, cy + ringR);
+
+        // Background track so the rounded-cap gaps read as an intentional ring, not gaps.
+        ringTrackPaint.setStrokeWidth(bandWidth);
+        canvas.drawCircle(cx, cy, ringR, ringTrackPaint);
+
+        slicePaint.setStrokeWidth(bandWidth);
+        float gapDeg = n > 1 ? 4f : 0f;
+        float availableSweep = 360f - gapDeg * n;
 
         float startAngle = -90f;
-        for (int i = 0; i < visibleCount; i++) {
-            float sweep = (float) (360.0 * data.get(i).total / totalAmount);
-            slicePaint.setColor(sliceColors[i % sliceColors.length]);
-            canvas.drawArc(donutRect, startAngle, sweep, true, slicePaint);
-            startAngle += sweep;
+        for (int i = 0; i < n; i++) {
+            CategoryTotal ct = slices.get(i);
+            float sweep = (float) (availableSweep * ct.total / totalAmount);
+            boolean isOther = hasOtherBucket && i == n - 1;
+            slicePaint.setColor(isOther ? mutedColor : sliceColors[i % sliceColors.length]);
+            canvas.drawArc(donutRect, startAngle + gapDeg / 2f, sweep, false, slicePaint);
+            startAngle += sweep + gapDeg;
         }
-
-        // Donut hole
-        canvas.drawCircle(cx, cy, innerR, holePaint);
 
         // Center text: total
         centerTextPaint.setTextSize(sp(11));
@@ -190,26 +210,52 @@ public class CategoryChartView extends View {
         // Legend
         float legendX = cx + outerR + dp(16);
         float legendWidth = getWidth() - legendX - dp(4);
-        float rowH = Math.max(dp(28), (getHeight() - dp(12)) / (float) visibleCount);
+        float rowH = Math.max(dp(28), (getHeight() - dp(12)) / (float) n);
 
-        for (int i = 0; i < visibleCount; i++) {
-            CategoryTotal ct = data.get(i);
+        for (int i = 0; i < n; i++) {
+            CategoryTotal ct = slices.get(i);
+            boolean isOther = hasOtherBucket && i == n - 1;
             float rowTop = dp(8) + i * rowH;
             float baseline = rowTop + dp(14);
 
             // Color dot
-            slicePaint.setColor(sliceColors[i % sliceColors.length]);
+            slicePaint.setStyle(Paint.Style.FILL);
+            slicePaint.setColor(isOther ? mutedColor : sliceColors[i % sliceColors.length]);
             canvas.drawCircle(legendX + dp(5), baseline - dp(3), dp(5), slicePaint);
+            slicePaint.setStyle(Paint.Style.STROKE);
 
             // Category name
-            String name = CategoryIcons.getEmoji(ct.category) + " " +
-                    ellipsize(ct.category, labelPaint, legendWidth - dp(14));
+            String label = isOther ? ct.category : CategoryIcons.getEmoji(ct.category) + " " + ct.category;
+            String name = ellipsize(label, labelPaint, legendWidth - dp(14));
             canvas.drawText(name, legendX + dp(14), baseline, labelPaint);
 
-            // Amount (muted, below name)
+            // Amount + share of total (muted, below name)
+            int pct = (int) Math.round(100.0 * ct.total / totalAmount);
             mutedLabelPaint.setTextAlign(Paint.Align.LEFT);
-            canvas.drawText(abbreviateMoney(ct.total), legendX + dp(14), baseline + dp(14), mutedLabelPaint);
+            canvas.drawText(abbreviateMoney(ct.total) + " · " + pct + "%", legendX + dp(14), baseline + dp(14), mutedLabelPaint);
         }
+    }
+
+    /**
+     * Top categories as individually-colored slices, with anything past the
+     * validated palette's slot count folded into a single neutral "Other" slice —
+     * this also fixes the total (and every percentage) previously being computed
+     * from only the visible slices instead of every category.
+     */
+    private List<CategoryTotal> buildDonutSlices() {
+        List<CategoryTotal> slices = new ArrayList<>();
+        double otherTotal = 0.0;
+        for (int i = 0; i < data.size(); i++) {
+            if (i < DONUT_NAMED_SLICES) {
+                slices.add(data.get(i));
+            } else {
+                otherTotal += data.get(i).total;
+            }
+        }
+        if (otherTotal > 0.0) {
+            slices.add(new CategoryTotal("Everything else", otherTotal));
+        }
+        return slices;
     }
 
     // ── Trend / Line chart ────────────────────────────────────────────────────

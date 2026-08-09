@@ -10,13 +10,13 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace 'com.offline.expense'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.offline.expense"
         minSdk 24
-        targetSdk 35
-        versionCode 4
+        targetSdk 36
+        versionCode 5
         versionName "1.2"
     }
 
@@ -51,6 +51,7 @@ android {
 dependencies {
     // ADS: implementation 'com.google.android.gms:play-services-ads:25.2.0'
     implementation 'androidx.drawerlayout:drawerlayout:1.2.0'
+    implementation 'androidx.core:core:1.13.1'
 }
 
 tasks.register("prepareKotlinBuildScriptModel") {

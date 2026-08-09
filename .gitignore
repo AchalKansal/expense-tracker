@@ -15,7 +15,9 @@ gen/
 out/
 release/
 build/
-.gradle/
+.cxx/
+captures/
+*.hprof
 
 # Gradle files
 .gradle/

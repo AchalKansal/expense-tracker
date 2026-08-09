@@ -90,6 +90,13 @@ final class ThemeHelper {
         return Color.rgb(239, 68, 68);
     }
 
+    GradientDrawable makeBadgeDrawable(int color) {
+        GradientDrawable d = new GradientDrawable();
+        d.setColor(color);
+        d.setCornerRadius(dp(999));
+        return d;
+    }
+
     GradientDrawable makeDangerButtonDrawable() {
         GradientDrawable d = new GradientDrawable();
         d.setColor(darkMode ? Color.argb(50, 239, 68, 68) : Color.argb(20, 239, 68, 68));

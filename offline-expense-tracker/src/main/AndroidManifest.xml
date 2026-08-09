@@ -7,6 +7,11 @@
     <!-- ADS: <uses-permission android:name="android.permission.INTERNET" /> -->
     <!-- ADS: <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> -->
 
+    <!-- Used only to detect bank/UPI transaction SMS on-device and suggest expense entries; nothing leaves the device. -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
@@ -46,6 +51,20 @@
             android:name=".ManageCategoriesActivity"
             android:label="Manage categories"
             android:exported="false" />
+
+        <activity
+            android:name=".SmsReviewActivity"
+            android:label="SMS suggestions"
+            android:exported="false" />
+
+        <receiver
+            android:name=".SmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
 
     </application>
 

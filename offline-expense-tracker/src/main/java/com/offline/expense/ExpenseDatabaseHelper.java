@@ -10,15 +10,17 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
 
 final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "offline_expenses.db";
-    private static final int DATABASE_VERSION = 5;
+    private static final int DATABASE_VERSION = 6;
     private static final String TABLE_ENTRIES = "entries";
     private static final String TABLE_CATEGORIES = "categories";
     private static final String TABLE_SMS_SUGGESTIONS = "sms_suggestions";
+    private static final String TABLE_MERCHANT_CATEGORIES = "merchant_categories";
 
     private static final String[] DEFAULT_EXPENSE_CATEGORIES = {
             "Food", "Transport", "Shopping", "Bills", "Health", "Rent", "Family", "Investment", "Other"
@@ -45,6 +47,7 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
         createEntriesTable(db);
         createCategoriesTable(db);
         createSmsSuggestionsTable(db);
+        createMerchantCategoriesTable(db);
         seedDefaultCategories(db);
     }
 
@@ -62,6 +65,9 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 5) {
             createSmsSuggestionsTable(db);
+        }
+        if (oldVersion < 6) {
+            createMerchantCategoriesTable(db);
         }
     }
 
@@ -97,6 +103,56 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
                 "sms_time INTEGER NOT NULL, " +
                 "dedupe_key TEXT UNIQUE" +
                 ")");
+    }
+
+    private void createMerchantCategoriesTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_MERCHANT_CATEGORIES + " (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "type TEXT NOT NULL, " +
+                "merchant_key TEXT NOT NULL, " +
+                "category TEXT NOT NULL, " +
+                "UNIQUE(type, merchant_key)" +
+                ")");
+    }
+
+    private static String normalizeMerchantKey(String merchant) {
+        if (merchant == null) return null;
+        String key = merchant.trim().toLowerCase(Locale.US);
+        return key.isEmpty() ? null : key;
+    }
+
+    /** Returns the category the user last picked for this merchant/type, or null if none is known yet. */
+    String getCategoryForMerchant(String type, String merchant) {
+        String key = normalizeMerchantKey(merchant);
+        if (key == null) return null;
+
+        Cursor cursor = getReadableDatabase().query(
+                TABLE_MERCHANT_CATEGORIES,
+                new String[]{"category"},
+                "type = ? AND merchant_key = ?",
+                new String[]{type, key},
+                null,
+                null,
+                null
+        );
+        try {
+            return cursor.moveToFirst() ? cursor.getString(0) : null;
+        } finally {
+            cursor.close();
+        }
+    }
+
+    /** Remembers the category the user picked for this merchant/type so future SMS from them suggest it. */
+    void saveMerchantCategory(String type, String merchant, String category) {
+        String key = normalizeMerchantKey(merchant);
+        if (key == null) return;
+
+        ContentValues values = new ContentValues();
+        values.put("type", type);
+        values.put("merchant_key", key);
+        values.put("category", category);
+        getWritableDatabase().insertWithOnConflict(
+                TABLE_MERCHANT_CATEGORIES, null, values, SQLiteDatabase.CONFLICT_REPLACE);
     }
 
     private void seedDefaultCategories(SQLiteDatabase db) {
@@ -137,6 +193,31 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
 
     void deleteEntry(long id) {
         getWritableDatabase().delete(TABLE_ENTRIES, "id = ?", new String[]{String.valueOf(id)});
+    }
+
+    int getEntryCountBetween(long startMillis, long endMillis) {
+        Cursor cursor = getReadableDatabase().query(
+                TABLE_ENTRIES,
+                new String[]{"COUNT(*) AS count"},
+                "created_at >= ? AND created_at < ?",
+                new String[]{String.valueOf(startMillis), String.valueOf(endMillis)},
+                null,
+                null,
+                null
+        );
+
+        try {
+            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
+        } finally {
+            cursor.close();
+        }
+    }
+
+    void deleteEntriesBetween(long startMillis, long endMillis) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.delete(TABLE_ENTRIES, "created_at >= ? AND created_at < ?",
+                new String[]{String.valueOf(startMillis), String.valueOf(endMillis)});
+        db.execSQL("VACUUM");
     }
 
     ExpenseEntry getEntry(long id) {

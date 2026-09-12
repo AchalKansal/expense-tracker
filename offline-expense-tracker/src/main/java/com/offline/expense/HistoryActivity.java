@@ -1,12 +1,14 @@
 package com.offline.expense;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -19,15 +21,19 @@ import android.view.WindowInsets;
 import android.widget.Button;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.ads.AdView;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.text.DateFormatSymbols;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -72,6 +78,9 @@ public class HistoryActivity extends Activity {
     private Button exportButton;
     private Button backupButton;
     private Button restoreButton;
+    private Button deleteMonthButton;
+    private FrameLayout adContainer;
+    private AdView adView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -98,6 +107,7 @@ public class HistoryActivity extends Activity {
         setupActions();
         applyTheme();
         renderHistory();
+        adView = BannerAds.attach(this, adContainer);
     }
 
     private void bindViews() {
@@ -116,6 +126,8 @@ public class HistoryActivity extends Activity {
         exportButton = findViewById(R.id.exportButton);
         backupButton = findViewById(R.id.backupButton);
         restoreButton = findViewById(R.id.restoreButton);
+        deleteMonthButton = findViewById(R.id.deleteMonthButton);
+        adContainer = findViewById(R.id.adContainer);
     }
 
     private void applyWindowInsets() {
@@ -150,6 +162,7 @@ public class HistoryActivity extends Activity {
         exportButton.setOnClickListener(view -> createDocument(REQUEST_EXPORT_CSV, "expense-history.csv"));
         backupButton.setOnClickListener(view -> createDocument(REQUEST_BACKUP, "expense-tracker-backup.csv"));
         restoreButton.setOnClickListener(view -> openBackupDocument());
+        deleteMonthButton.setOnClickListener(view -> showDeleteMonthDialog());
 
         periodSpinner.setOnItemSelectedListener(new SimpleItemSelectedListener(() -> {
             boolean isCustom = periodSpinner.getSelectedItemPosition() == PERIOD_CUSTOM;
@@ -412,6 +425,212 @@ public class HistoryActivity extends Activity {
         startActivityForResult(intent, REQUEST_RESTORE);
     }
 
+    private void showDeleteMonthDialog() {
+        Calendar now = Calendar.getInstance();
+        int currentYear = now.get(Calendar.YEAR);
+        int firstYear = currentYear;
+        Long firstEntryAt = databaseHelper.getFirstEntryTimestamp();
+        if (firstEntryAt != null) {
+            Calendar firstCal = Calendar.getInstance();
+            firstCal.setTimeInMillis(firstEntryAt);
+            firstYear = firstCal.get(Calendar.YEAR);
+        }
+
+        List<String> monthNames = new ArrayList<>(
+                java.util.Arrays.asList(new DateFormatSymbols(Locale.getDefault()).getMonths()));
+        while (monthNames.size() > 12) monthNames.remove(monthNames.size() - 1);
+
+        List<String> years = new ArrayList<>();
+        for (int y = currentYear; y >= firstYear; y--) years.add(String.valueOf(y));
+
+        Calendar defaultCal = Calendar.getInstance();
+        defaultCal.add(Calendar.MONTH, -1);
+        int defaultMonth = defaultCal.get(Calendar.MONTH);
+        int defaultYearIndex = years.indexOf(String.valueOf(defaultCal.get(Calendar.YEAR)));
+        if (defaultYearIndex < 0) defaultYearIndex = 0;
+
+        LinearLayout dialogRoot = createDialogCard();
+
+        TextView title = createDialogTitle("Delete data");
+        TextView subtitle = createDialogSubtitle("Choose a month and year to permanently delete its entries.");
+        subtitle.setPadding(0, theme.dp(6), 0, theme.dp(18));
+
+        LinearLayout spinnerRow = new LinearLayout(this);
+        spinnerRow.setOrientation(LinearLayout.HORIZONTAL);
+
+        Spinner monthSpinner = new Spinner(this);
+        monthSpinner.setAdapter(makeThemedAdapter(monthNames));
+        monthSpinner.setSelection(defaultMonth);
+        monthSpinner.setBackground(theme.makeInputDrawable());
+        monthSpinner.setPadding(theme.dp(12), theme.dp(10), theme.dp(12), theme.dp(10));
+
+        Spinner yearSpinner = new Spinner(this);
+        yearSpinner.setAdapter(makeThemedAdapter(years));
+        yearSpinner.setSelection(defaultYearIndex);
+        yearSpinner.setBackground(theme.makeInputDrawable());
+        yearSpinner.setPadding(theme.dp(12), theme.dp(10), theme.dp(12), theme.dp(10));
+
+        LinearLayout.LayoutParams monthParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.4f);
+        monthParams.setMarginEnd(theme.dp(8));
+        monthSpinner.setLayoutParams(monthParams);
+
+        LinearLayout.LayoutParams yearParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        yearSpinner.setLayoutParams(yearParams);
+
+        spinnerRow.addView(monthSpinner);
+        spinnerRow.addView(yearSpinner);
+
+        AlertDialog dialog = new AlertDialog.Builder(this).setView(dialogRoot).create();
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+        LinearLayout actionRow = createDialogActionRow(dialog::dismiss);
+        Button nextButton = createDialogButton("Next", theme.makePremiumButtonDrawable(), Color.WHITE);
+        nextButton.setOnClickListener(view -> {
+            dialog.dismiss();
+            confirmDeleteMonth(monthSpinner.getSelectedItemPosition(),
+                    Integer.parseInt(years.get(yearSpinner.getSelectedItemPosition())));
+        });
+        actionRow.addView(nextButton);
+
+        dialogRoot.addView(title);
+        dialogRoot.addView(subtitle);
+        dialogRoot.addView(spinnerRow);
+        dialogRoot.addView(actionRow);
+        dialog.show();
+    }
+
+    private void confirmDeleteMonth(int monthIndex, int year) {
+        Calendar start = Calendar.getInstance();
+        start.set(year, monthIndex, 1, 0, 0, 0);
+        start.set(Calendar.MILLISECOND, 0);
+        long startMillis = start.getTimeInMillis();
+
+        Calendar end = Calendar.getInstance();
+        end.setTimeInMillis(startMillis);
+        end.add(Calendar.MONTH, 1);
+        long endMillis = end.getTimeInMillis();
+
+        int count = databaseHelper.getEntryCountBetween(startMillis, endMillis);
+        if (count == 0) {
+            Toast.makeText(this, "No entries found for that month", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String monthLabel = monthFormat.format(new Date(startMillis));
+
+        LinearLayout dialogRoot = createDialogCard();
+        TextView title = createDialogTitle("Delete " + monthLabel + "?");
+        TextView message = createDialogSubtitle("This will permanently delete " + count + " entr"
+                + (count == 1 ? "y" : "ies") + " from " + monthLabel
+                + ". This cannot be undone — export a backup first if you might need this data later.");
+        message.setPadding(0, theme.dp(6), 0, theme.dp(4));
+
+        AlertDialog dialog = new AlertDialog.Builder(this).setView(dialogRoot).create();
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+        LinearLayout actionRow = createDialogActionRow(dialog::dismiss);
+        Button deleteButton = createDialogButton("Delete", theme.makeDangerButtonDrawable(), theme.colorDanger());
+        deleteButton.setOnClickListener(view -> {
+            dialog.dismiss();
+            databaseHelper.deleteEntriesBetween(startMillis, endMillis);
+            renderHistory();
+            Toast.makeText(this, monthLabel + " deleted", Toast.LENGTH_SHORT).show();
+        });
+        actionRow.addView(deleteButton);
+
+        dialogRoot.addView(title);
+        dialogRoot.addView(message);
+        dialogRoot.addView(actionRow);
+        dialog.show();
+    }
+
+    private LinearLayout createDialogCard() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackground(theme.makeCardDrawable());
+        int pad = theme.dp(20);
+        card.setPadding(pad, pad, pad, pad);
+        return card;
+    }
+
+    private TextView createDialogTitle(String text) {
+        TextView title = new TextView(this);
+        title.setText(text);
+        title.setTextColor(theme.colorInk());
+        title.setTextSize(18);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        return title;
+    }
+
+    private TextView createDialogSubtitle(String text) {
+        TextView subtitle = new TextView(this);
+        subtitle.setText(text);
+        subtitle.setTextColor(theme.colorMuted());
+        subtitle.setTextSize(13);
+        return subtitle;
+    }
+
+    private LinearLayout createDialogActionRow(Runnable onCancel) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        rowParams.topMargin = theme.dp(22);
+        row.setLayoutParams(rowParams);
+
+        Button cancelButton = new Button(this);
+        cancelButton.setText("Cancel");
+        cancelButton.setAllCaps(false);
+        cancelButton.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        cancelButton.setTextColor(theme.colorMuted());
+        cancelButton.setBackground(null);
+        cancelButton.setMinWidth(0);
+        cancelButton.setMinHeight(0);
+        cancelButton.setPadding(theme.dp(14), theme.dp(10), theme.dp(14), theme.dp(10));
+        cancelButton.setOnClickListener(view -> onCancel.run());
+
+        row.addView(cancelButton);
+        return row;
+    }
+
+    private Button createDialogButton(String text, android.graphics.drawable.Drawable background, int textColor) {
+        Button button = new Button(this);
+        button.setText(text);
+        button.setAllCaps(false);
+        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        button.setTextColor(textColor);
+        button.setBackground(background);
+        button.setMinWidth(0);
+        button.setMinHeight(0);
+        button.setPadding(theme.dp(18), theme.dp(10), theme.dp(18), theme.dp(10));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.setMarginStart(theme.dp(10));
+        button.setLayoutParams(params);
+        return button;
+    }
+
+    @Override
+    protected void onPause() {
+        if (adView != null) adView.pause();
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (adView != null) adView.resume();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (adView != null) adView.destroy();
+        super.onDestroy();
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -551,6 +770,9 @@ public class HistoryActivity extends Activity {
             button.setTextColor(Color.WHITE);
             button.setBackground(theme.makePremiumButtonDrawable());
         }
+        deleteMonthButton.setTextColor(theme.colorDanger());
+        deleteMonthButton.setBackground(theme.makeDangerButtonDrawable());
+        adContainer.setBackgroundColor(theme.colorSurface());
         getWindow().setStatusBarColor(theme.colorBackground());
         getWindow().setNavigationBarColor(theme.colorBackground());
         applyStatusBarAppearance();

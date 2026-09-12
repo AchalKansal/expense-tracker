@@ -134,4 +134,11 @@
                 android:textStyle="bold" />
         </LinearLayout>
     </ScrollView>
+
+    <FrameLayout
+        android:id="@+id/adContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:minHeight="50dp" />
 </LinearLayout>

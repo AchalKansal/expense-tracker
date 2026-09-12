@@ -1,15 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove"/>
-
-    <!-- ADS: <uses-permission android:name="android.permission.INTERNET" /> -->
-    <!-- ADS: <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> -->
-
-    <!-- Used only to detect bank/UPI transaction SMS on-device and suggest expense entries; nothing leaves the device. -->
-    <uses-permission android:name="android.permission.RECEIVE_SMS" />
-    <uses-permission android:name="android.permission.READ_SMS" />
+    <!-- Used only to show a local notification when a transaction suggestion is found; nothing leaves the device. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
@@ -20,11 +14,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.OfflineExpenseTracker">
 
-        <!-- ADS:
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713" />
-        -->
+            android:value="ca-app-pub-1377363250840020~8807431404" />
 
         <activity
             android:name=".MainActivity"
@@ -55,16 +47,26 @@
         <activity
             android:name=".SmsReviewActivity"
             android:label="SMS suggestions"
-            android:exported="false" />
-
-        <receiver
-            android:name=".SmsReceiver"
-            android:exported="true"
-            android:permission="android.permission.BROADCAST_SMS">
+            android:exported="true">
+            <!-- Lets a bank/UPI SMS be shared into the app from Messages (or any app) via the system share sheet. -->
             <intent-filter>
-                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
             </intent-filter>
-        </receiver>
+        </activity>
+
+        <!-- Reads only the currently-set default SMS app's notifications (bank/UPI alerts) to suggest
+             expense entries. Requires the user to grant Notification access in system Settings;
+             nothing leaves the device and no SMS/Call Log permission is requested. -->
+        <service
+            android:name=".SmsNotificationListenerService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
     </application>
 

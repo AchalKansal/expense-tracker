@@ -14,10 +14,13 @@ import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.google.android.gms.ads.AdView;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,6 +40,8 @@ public class ManageCategoriesActivity extends Activity {
     private TextView countText;
     private Button expTypeBtn;
     private Button incTypeBtn;
+    private FrameLayout adContainer;
+    private AdView adView;
     private boolean darkMode;
 
     @Override
@@ -50,9 +55,15 @@ public class ManageCategoriesActivity extends Activity {
     }
 
     private void buildUI() {
+        LinearLayout outerRoot = new LinearLayout(this);
+        outerRoot.setOrientation(LinearLayout.VERTICAL);
+        outerRoot.setBackgroundColor(theme.colorBackground());
+
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(theme.colorBackground());
         scroll.setFillViewport(true);
+        scroll.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
         rootContent = new LinearLayout(this);
         rootContent.setOrientation(LinearLayout.VERTICAL);
@@ -184,14 +195,25 @@ public class ManageCategoriesActivity extends Activity {
         rootContent.addView(categoriesContainer);
 
         scroll.addView(rootContent);
-        setContentView(scroll);
+        outerRoot.addView(scroll);
 
-        rootContent.setOnApplyWindowInsetsListener((v, insets) -> {
+        adContainer = new FrameLayout(this);
+        adContainer.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        adContainer.setMinimumHeight(theme.dp(50));
+        adContainer.setBackgroundColor(theme.colorSurface());
+        outerRoot.addView(adContainer);
+
+        setContentView(outerRoot);
+
+        outerRoot.setOnApplyWindowInsetsListener((v, insets) -> {
             int top = insets.getSystemWindowInsetTop();
+            int bottom = insets.getSystemWindowInsetBottom();
             rootContent.setPadding(theme.dp(18), theme.dp(18) + top, theme.dp(18), theme.dp(18));
+            adContainer.setPadding(0, 0, 0, bottom);
             return insets;
         });
-        rootContent.requestApplyInsets();
+        outerRoot.requestApplyInsets();
 
         getWindow().setStatusBarColor(theme.colorBackground());
         getWindow().setNavigationBarColor(theme.colorBackground());
@@ -199,6 +221,7 @@ public class ManageCategoriesActivity extends Activity {
 
         applyTypeButtonStyles();
         refreshList();
+        adView = BannerAds.attach(this, adContainer);
     }
 
     private void applyStatusBarAppearance() {
@@ -411,6 +434,24 @@ public class ManageCategoriesActivity extends Activity {
         hideKeyboard();
         refreshList();
         Toast.makeText(this, "Category added", Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    protected void onPause() {
+        if (adView != null) adView.pause();
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (adView != null) adView.resume();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (adView != null) adView.destroy();
+        super.onDestroy();
     }
 
     private void hideKeyboard() {

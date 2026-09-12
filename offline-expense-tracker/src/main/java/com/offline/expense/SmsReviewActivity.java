@@ -1,29 +1,24 @@
 package com.offline.expense;
 
-import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
-import android.database.Cursor;
-import android.graphics.Color;
 import android.graphics.Typeface;
-import android.net.Uri;
 import android.os.Bundle;
-import android.provider.Telephony;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
+import com.google.android.gms.ads.AdView;
 
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
@@ -34,8 +29,6 @@ import java.util.Locale;
 public class SmsReviewActivity extends Activity {
     private static final String PREFS_NAME = "expense_tracker_prefs";
     private static final String KEY_DARK_MODE = "dark_mode";
-    private static final int REQUEST_READ_SMS = 2001;
-    private static final int SCAN_LIMIT = 500;
 
     private ExpenseDatabaseHelper databaseHelper;
     private ThemeHelper theme;
@@ -49,7 +42,8 @@ public class SmsReviewActivity extends Activity {
     private TextView suggestionsEmptyText;
     private LinearLayout suggestionsContainer;
     private Button backButton;
-    private Button scanInboxButton;
+    private FrameLayout adContainer;
+    private AdView adView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,6 +63,44 @@ public class SmsReviewActivity extends Activity {
         setupActions();
         applyTheme();
         renderSuggestions();
+        handleIncomingShare(getIntent());
+        adView = BannerAds.attach(this, adContainer);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIncomingShare(intent);
+    }
+
+    /** Handles a bank/UPI SMS shared in from Messages (or any app) via the system share sheet. */
+    private void handleIncomingShare(Intent intent) {
+        if (intent == null || !Intent.ACTION_SEND.equals(intent.getAction())) return;
+        String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
+        if (TextUtils.isEmpty(sharedText)) return;
+
+        ParsedTransaction parsed = SmsTransactionParser.parse(sharedText);
+        if (parsed == null) {
+            Toast.makeText(this, "Couldn't find a transaction amount in that message", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        String category = resolveCategory(parsed);
+        long now = System.currentTimeMillis();
+        String dedupeKey = "share:" + sharedText.trim().hashCode();
+        long id = databaseHelper.addSmsSuggestion(
+                parsed.type, parsed.amount, category, parsed.note, "Shared message", now, dedupeKey);
+        if (id != -1) {
+            Toast.makeText(this, "Transaction found — review it below", Toast.LENGTH_SHORT).show();
+            renderSuggestions();
+        }
+    }
+
+    /** If the user previously picked a category for this merchant, prefer that over the keyword guess. */
+    private String resolveCategory(ParsedTransaction parsed) {
+        String remembered = databaseHelper.getCategoryForMerchant(parsed.type, parsed.note);
+        return remembered != null ? remembered : parsed.category;
     }
 
     private void bindViews() {
@@ -78,7 +110,7 @@ public class SmsReviewActivity extends Activity {
         suggestionsEmptyText = findViewById(R.id.suggestionsEmptyText);
         suggestionsContainer = findViewById(R.id.suggestionsContainer);
         backButton = findViewById(R.id.backButton);
-        scanInboxButton = findViewById(R.id.scanInboxButton);
+        adContainer = findViewById(R.id.adContainer);
     }
 
     private void applyWindowInsets() {
@@ -94,64 +126,6 @@ public class SmsReviewActivity extends Activity {
 
     private void setupActions() {
         backButton.setOnClickListener(view -> finish());
-        scanInboxButton.setOnClickListener(view -> requestReadSmsThenScan());
-    }
-
-    private void requestReadSmsThenScan() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS)
-                == PackageManager.PERMISSION_GRANTED) {
-            scanInbox();
-        } else {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_SMS}, REQUEST_READ_SMS);
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_READ_SMS
-                && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            scanInbox();
-        } else if (requestCode == REQUEST_READ_SMS) {
-            Toast.makeText(this, "SMS permission is needed to scan the inbox", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private void scanInbox() {
-        Uri uri = Telephony.Sms.Inbox.CONTENT_URI;
-        String[] projection = {Telephony.Sms.ADDRESS, Telephony.Sms.BODY, Telephony.Sms.DATE};
-        int scanned = 0;
-        int imported = 0;
-
-        try (Cursor cursor = getContentResolver().query(
-                uri, projection, null, null, Telephony.Sms.DATE + " DESC LIMIT " + SCAN_LIMIT)) {
-            if (cursor != null) {
-                int addressIndex = cursor.getColumnIndex(Telephony.Sms.ADDRESS);
-                int bodyIndex = cursor.getColumnIndex(Telephony.Sms.BODY);
-                int dateIndex = cursor.getColumnIndex(Telephony.Sms.DATE);
-
-                while (cursor.moveToNext()) {
-                    scanned++;
-                    String sender = addressIndex >= 0 ? cursor.getString(addressIndex) : null;
-                    String body = bodyIndex >= 0 ? cursor.getString(bodyIndex) : null;
-                    long time = dateIndex >= 0 ? cursor.getLong(dateIndex) : System.currentTimeMillis();
-
-                    ParsedTransaction parsed = SmsTransactionParser.parse(body);
-                    if (parsed == null) continue;
-
-                    String dedupeKey = sender + "|" + time + "|" + parsed.amount + "|" + parsed.type;
-                    long id = databaseHelper.addSmsSuggestion(
-                            parsed.type, parsed.amount, parsed.category, parsed.note, sender, time, dedupeKey);
-                    if (id != -1) imported++;
-                }
-            }
-        } catch (SecurityException exception) {
-            Toast.makeText(this, "SMS permission is needed to scan the inbox", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        Toast.makeText(this, imported + " new suggestion(s) found from " + scanned + " messages", Toast.LENGTH_LONG).show();
-        renderSuggestions();
     }
 
     private void renderSuggestions() {
@@ -208,7 +182,10 @@ public class SmsReviewActivity extends Activity {
         amount.setPadding(theme.dp(6), 0, theme.dp(6), 0);
 
         Button confirmButton = makeSmallButton("✓", theme.colorPrimary(), theme.makeToggleDrawable());
-        confirmButton.setOnClickListener(view -> confirmSuggestion(suggestion));
+        confirmButton.setOnClickListener(view -> {
+            view.setEnabled(false);
+            confirmSuggestion(suggestion);
+        });
 
         Button editButton = makeSmallButton("✏️", theme.colorPrimary(), theme.makeToggleDrawable());
         editButton.setOnClickListener(view -> showEditDialog(suggestion));
@@ -246,6 +223,7 @@ public class SmsReviewActivity extends Activity {
     private void confirmSuggestion(SmsSuggestion suggestion) {
         databaseHelper.addEntry(
                 suggestion.type, suggestion.amount, suggestion.category, suggestion.note, suggestion.smsTime);
+        databaseHelper.saveMerchantCategory(suggestion.type, suggestion.note, suggestion.category);
         databaseHelper.deleteSmsSuggestion(suggestion.id);
         renderSuggestions();
         Toast.makeText(this, "Entry added", Toast.LENGTH_SHORT).show();
@@ -259,7 +237,7 @@ public class SmsReviewActivity extends Activity {
 
         EditText amountInput = new EditText(this);
         amountInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        amountInput.setText(String.valueOf(suggestion.amount));
+        amountInput.setText(EditEntryActivity.formatAmountForEditing(suggestion.amount));
         amountInput.setHint("Amount");
 
         Spinner categorySpinner = new Spinner(this);
@@ -309,6 +287,7 @@ public class SmsReviewActivity extends Activity {
                     String category = categorySpinner.getSelectedItem().toString();
                     String note = noteInput.getText().toString().trim();
                     databaseHelper.addEntry(suggestion.type, amount, category, note, suggestion.smsTime);
+                    databaseHelper.saveMerchantCategory(suggestion.type, suggestion.note, category);
                     databaseHelper.deleteSmsSuggestion(suggestion.id);
                     renderSuggestions();
                     Toast.makeText(this, "Entry added", Toast.LENGTH_SHORT).show();
@@ -327,8 +306,7 @@ public class SmsReviewActivity extends Activity {
         smsReviewSubtitle.setTextColor(theme.colorMuted());
         suggestionsEmptyText.setTextColor(theme.colorMuted());
         backButton.setTextColor(theme.colorInk());
-        scanInboxButton.setTextColor(Color.WHITE);
-        scanInboxButton.setBackground(theme.makePremiumButtonDrawable());
+        adContainer.setBackgroundColor(theme.colorSurface());
         getWindow().setStatusBarColor(theme.colorBackground());
         getWindow().setNavigationBarColor(theme.colorBackground());
         applyStatusBarAppearance();
@@ -357,5 +335,18 @@ public class SmsReviewActivity extends Activity {
         super.onResume();
         applyTheme();
         renderSuggestions();
+        if (adView != null) adView.resume();
+    }
+
+    @Override
+    protected void onPause() {
+        if (adView != null) adView.pause();
+        super.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (adView != null) adView.destroy();
+        super.onDestroy();
     }
 }

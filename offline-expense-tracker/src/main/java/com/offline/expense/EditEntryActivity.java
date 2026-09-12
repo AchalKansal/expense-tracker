@@ -12,6 +12,7 @@ import android.text.TextUtils;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -19,6 +20,9 @@ import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.ads.AdView;
+
+import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -50,6 +54,8 @@ public class EditEntryActivity extends Activity {
     private EditText amountInput;
     private EditText noteInput;
     private Spinner categorySpinner;
+    private FrameLayout adContainer;
+    private AdView adView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,6 +75,7 @@ public class EditEntryActivity extends Activity {
         applyTheme();
         loadEntry();
         setupActions();
+        adView = BannerAds.attach(this, adContainer);
     }
 
     private void bindViews() {
@@ -84,6 +91,7 @@ public class EditEntryActivity extends Activity {
         amountInput = findViewById(R.id.amountInput);
         noteInput = findViewById(R.id.noteInput);
         categorySpinner = findViewById(R.id.categorySpinner);
+        adContainer = findViewById(R.id.adContainer);
     }
 
     private void loadEntry() {
@@ -98,9 +106,16 @@ public class EditEntryActivity extends Activity {
         typeGroup.check(entry.isIncome() ? R.id.incomeRadio : R.id.expenseRadio);
         updateCategories(entry.isIncome() ? EntryTypes.INCOME : EntryTypes.EXPENSE);
         selectCategory(entry.category);
-        amountInput.setText(String.valueOf(entry.amount));
+        amountInput.setText(formatAmountForEditing(entry.amount));
         noteInput.setText(entry.note == null ? "" : entry.note);
         updateDateButton();
+    }
+
+    // String.valueOf(double)/Double.toString(double) switches to scientific notation
+    // (e.g. "1.0E8") for large values, which breaks an editable amount field.
+    // BigDecimal.toPlainString() never uses exponent notation.
+    static String formatAmountForEditing(double amount) {
+        return BigDecimal.valueOf(amount).stripTrailingZeros().toPlainString();
     }
 
     private void applyWindowInsets() {
@@ -229,6 +244,7 @@ public class EditEntryActivity extends Activity {
         categorySpinner.setBackground(theme.makeInputDrawable());
         saveButton.setBackground(theme.makePremiumButtonDrawable());
         saveButton.setTextColor(Color.WHITE);
+        adContainer.setBackgroundColor(theme.colorSurface());
         getWindow().setStatusBarColor(theme.colorBackground());
         getWindow().setNavigationBarColor(theme.colorBackground());
         applyStatusBarAppearance();
@@ -250,6 +266,24 @@ public class EditEntryActivity extends Activity {
             }
             decorView.setSystemUiVisibility(flags);
         }
+    }
+
+    @Override
+    protected void onPause() {
+        if (adView != null) adView.pause();
+        super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (adView != null) adView.resume();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (adView != null) adView.destroy();
+        super.onDestroy();
     }
 
     private void styleToggle(TextView view) {

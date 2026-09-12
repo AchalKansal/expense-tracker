@@ -28,10 +28,10 @@ import android.widget.Toast;
 
 import androidx.drawerlayout.widget.DrawerLayout;
 
-// ADS: import com.google.android.gms.ads.AdRequest;
-// ADS: import com.google.android.gms.ads.AdSize;
-// ADS: import com.google.android.gms.ads.AdView;
-// ADS: import com.google.android.gms.ads.MobileAds;
+import com.google.android.gms.ads.AdRequest;
+import com.google.android.gms.ads.AdSize;
+import com.google.android.gms.ads.AdView;
+import com.google.android.gms.ads.MobileAds;
 
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
@@ -44,9 +44,9 @@ import java.util.Locale;
 public class MainActivity extends Activity {
     private static final String PREFS_NAME = "expense_tracker_prefs";
     private static final String KEY_DARK_MODE = "dark_mode";
-    private static final String KEY_SMS_AUTO_DETECT = SmsReceiver.KEY_SMS_AUTO_DETECT;
-    private static final int REQUEST_SMS_PERMISSIONS = 3001;
-    // ADS: private static final String TEST_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/9214589741";
+    private static final String KEY_NOTIFICATION_DETECT_ENABLED =
+            SmsNotificationListenerService.KEY_NOTIFICATION_DETECT_ENABLED;
+    private static final String BANNER_AD_UNIT_ID = "ca-app-pub-1377363250840020/6830180927";
 
     private ExpenseDatabaseHelper databaseHelper;
     private ThemeHelper theme;
@@ -123,12 +123,12 @@ public class MainActivity extends Activity {
     private RadioButton pieChartRadio;
     private TextView chartSummaryText;
     private CategoryChartView categoryChartView;
-    // ADS: private FrameLayout adContainer;
+    private FrameLayout adContainer;
     private Button addButton;
     private TextView menuButton;
     private TextView dateButton;
     private Switch themeSwitch;
-    // ADS: private AdView adView;
+    private AdView adView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -147,6 +147,7 @@ public class MainActivity extends Activity {
 
         bindViews();
         applyWindowInsets();
+        setupSummaryValueAutosize();
         applyTheme();
         setupMainTabs();
         setupCategoryChips();
@@ -157,7 +158,7 @@ public class MainActivity extends Activity {
         setupThemeToggle();
         setupDrawer();
         setupSmsAutoDetect();
-        // ADS: setupBottomBannerAd();
+        setupBottomBannerAd();
         refreshDashboard();
     }
 
@@ -226,7 +227,7 @@ public class MainActivity extends Activity {
         pieChartRadio = findViewById(R.id.pieChartRadio);
         chartSummaryText = findViewById(R.id.chartSummaryText);
         categoryChartView = findViewById(R.id.categoryChartView);
-        // ADS: adContainer = findViewById(R.id.adContainer);
+        adContainer = findViewById(R.id.adContainer);
         addButton = findViewById(R.id.addButton);
         menuButton = findViewById(R.id.menuButton);
         dateButton = findViewById(R.id.dateButton);
@@ -239,7 +240,7 @@ public class MainActivity extends Activity {
             int top = insets.getSystemWindowInsetTop();
             int bottom = insets.getSystemWindowInsetBottom();
             rootContent.setPadding(p, p + top, p, p);
-            // ADS: adContainer.setPadding(0, 0, 0, bottom);
+            adContainer.setPadding(0, 0, 0, bottom);
             drawerView.setPadding(
                     theme.dp(20), theme.dp(20) + top,
                     theme.dp(20), theme.dp(20)
@@ -247,6 +248,19 @@ public class MainActivity extends Activity {
             return insets;
         });
         mainRoot.requestApplyInsets();
+    }
+
+    // The three summary cells are ~1/3 screen width; on narrow devices or larger system
+    // font scale, a formatted amount like "₹45,231.00" can be wider than the cell and wrap
+    // to a second line, overflowing the cell. Auto-sizing shrinks the text to fit one line
+    // instead, so the full figure stays visible rather than wrapping or getting truncated.
+    private void setupSummaryValueAutosize() {
+        TextView[] values = {todaySpentText, monthSpentText, paceValueText};
+        for (TextView value : values) {
+            value.setSingleLine(true);
+            androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
+                    value, 9, 14, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
+        }
     }
 
     private void setupMainTabs() {
@@ -453,75 +467,44 @@ public class MainActivity extends Activity {
     }
 
     private void setupSmsAutoDetect() {
-        smsAutoDetectSwitch.setChecked(preferences.getBoolean(KEY_SMS_AUTO_DETECT, false));
+        refreshNotificationDetectSwitch();
         smsAutoDetectSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked) {
-                requestSmsPermissionsAndEnable();
+            if (!isChecked) {
+                preferences.edit().putBoolean(KEY_NOTIFICATION_DETECT_ENABLED, false).apply();
+                return;
+            }
+            if (SmsNotificationListenerService.isListenerAccessGranted(this)) {
+                preferences.edit().putBoolean(KEY_NOTIFICATION_DETECT_ENABLED, true).apply();
             } else {
-                preferences.edit().putBoolean(KEY_SMS_AUTO_DETECT, false).apply();
+                showNotificationAccessRationale();
             }
         });
     }
 
-    private void requestSmsPermissionsAndEnable() {
-        List<String> missing = new ArrayList<>();
-        for (String permission : smsPermissionsNeeded()) {
-            if (androidx.core.content.ContextCompat.checkSelfPermission(this, permission)
-                    != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                missing.add(permission);
-            }
-        }
-        if (missing.isEmpty()) {
-            preferences.edit().putBoolean(KEY_SMS_AUTO_DETECT, true).apply();
-            return;
-        }
-        showSmsPermissionRationale(missing.toArray(new String[0]));
-    }
-
-    private void showSmsPermissionRationale(String[] permissionsToRequest) {
+    private void showNotificationAccessRationale() {
         new android.app.AlertDialog.Builder(this)
-                .setTitle("Read SMS for transactions?")
-                .setMessage("If you allow this, the app will read your SMS messages on this device only, " +
-                        "looking for bank/UPI transaction alerts (amount debited/credited) to suggest as " +
-                        "expense entries for you to review before anything is added. Messages are never " +
-                        "uploaded or sent anywhere — this app has no internet access. You can turn this " +
-                        "off anytime from this menu.")
-                .setPositiveButton("Allow", (dialog, which) -> androidx.core.app.ActivityCompat.requestPermissions(
-                        this, permissionsToRequest, REQUEST_SMS_PERMISSIONS))
+                .setTitle("Detect transactions automatically?")
+                .setMessage("This reads notifications from your default messaging app only, looking for " +
+                        "bank/UPI transaction alerts (amount debited/credited) to suggest as expense entries " +
+                        "for you to review before anything is added. Nothing is uploaded — this app has no " +
+                        "internet access. Android requires granting this from Settings; you'll be taken there " +
+                        "next, then just come back here when done.")
+                .setPositiveButton("Open Settings", (dialog, which) -> startActivity(
+                        new Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)))
                 .setNegativeButton("Not now", (dialog, which) -> smsAutoDetectSwitch.setChecked(false))
                 .setOnCancelListener(dialog -> smsAutoDetectSwitch.setChecked(false))
                 .show();
     }
 
-    private String[] smsPermissionsNeeded() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            return new String[]{
-                    android.Manifest.permission.RECEIVE_SMS,
-                    android.Manifest.permission.READ_SMS,
-                    android.Manifest.permission.POST_NOTIFICATIONS
-            };
+    private void refreshNotificationDetectSwitch() {
+        boolean granted = SmsNotificationListenerService.isListenerAccessGranted(this);
+        boolean wanted = preferences.getBoolean(KEY_NOTIFICATION_DETECT_ENABLED, false);
+        if (wanted && !granted) {
+            // Access was revoked outside the app (e.g. from system Settings) — reflect that.
+            preferences.edit().putBoolean(KEY_NOTIFICATION_DETECT_ENABLED, false).apply();
+            wanted = false;
         }
-        return new String[]{
-                android.Manifest.permission.RECEIVE_SMS,
-                android.Manifest.permission.READ_SMS
-        };
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != REQUEST_SMS_PERMISSIONS) return;
-
-        boolean allGranted = grantResults.length > 0;
-        for (int result : grantResults) {
-            if (result != android.content.pm.PackageManager.PERMISSION_GRANTED) allGranted = false;
-        }
-        if (allGranted) {
-            preferences.edit().putBoolean(KEY_SMS_AUTO_DETECT, true).apply();
-        } else {
-            smsAutoDetectSwitch.setChecked(false);
-            Toast.makeText(this, "SMS permissions are needed to auto-detect transactions", Toast.LENGTH_LONG).show();
-        }
+        smsAutoDetectSwitch.setChecked(granted && wanted);
     }
 
     private void updateSmsBadge() {
@@ -605,18 +588,17 @@ public class MainActivity extends Activity {
         });
     }
 
-    // ADS:
-    // private void setupBottomBannerAd() {
-    //     MobileAds.initialize(this, initializationStatus -> runOnUiThread(this::loadBottomBannerAd));
-    // }
+    private void setupBottomBannerAd() {
+        MobileAds.initialize(this, initializationStatus -> runOnUiThread(this::loadBottomBannerAd));
+    }
 
-    // private void loadBottomBannerAd() {
-    //     adView = new AdView(this);
-    //     adView.setAdUnitId(TEST_BANNER_AD_UNIT_ID);
-    //     adView.setAdSize(AdSize.BANNER);
-    //     adContainer.addView(adView);
-    //     adView.loadAd(new AdRequest.Builder().build());
-    // }
+    private void loadBottomBannerAd() {
+        adView = new AdView(this);
+        adView.setAdUnitId(BANNER_AD_UNIT_ID);
+        adView.setAdSize(AdSize.BANNER);
+        adContainer.addView(adView);
+        adView.loadAd(new AdRequest.Builder().build());
+    }
 
     private void saveEntry() {
         String amountText = amountInput.getText().toString().trim();
@@ -655,14 +637,29 @@ public class MainActivity extends Activity {
         Toast.makeText(this, "Entry added", Toast.LENGTH_SHORT).show();
     }
 
+    // These three dashboard tiles are ~1/3 screen width each; an arbitrarily large amount
+    // formatted at full precision (e.g. "₹10,00,00,000.00") can't be shrunk small enough by
+    // autosize to fit and ends up clipped. Lakh/Crore notation keeps the string short and
+    // bounded regardless of magnitude. Full precision is still used everywhere else (entries
+    // list, history, edit screens).
+    private String formatCompactAmount(double amount) {
+        if (amount >= 1_00_00_000d) {
+            return "₹" + String.format(Locale.getDefault(), "%.2f", amount / 1_00_00_000d) + "Cr";
+        }
+        if (amount >= 1_00_000d) {
+            return "₹" + String.format(Locale.getDefault(), "%.2f", amount / 1_00_000d) + "L";
+        }
+        return moneyFormat.format(amount);
+    }
+
     private void refreshDashboard() {
         long dayStart = getStartOfDay();
         long monthStart = getStartOfMonth();
         double todayExpense = databaseHelper.getTotalForTypeSince(EntryTypes.EXPENSE, dayStart);
         double monthExpense = databaseHelper.getTotalForTypeSince(EntryTypes.EXPENSE, monthStart);
 
-        todaySpentText.setText(moneyFormat.format(todayExpense));
-        monthSpentText.setText(moneyFormat.format(monthExpense));
+        todaySpentText.setText(formatCompactAmount(todayExpense));
+        monthSpentText.setText(formatCompactAmount(monthExpense));
         updateSpendingPace(monthStart, monthExpense);
 
         renderEntries(databaseHelper.getRecentEntries(10));
@@ -692,7 +689,7 @@ public class MainActivity extends Activity {
             else statusColor = getColor(R.color.expense);
         }
 
-        paceValueText.setText(moneyFormat.format(projected));
+        paceValueText.setText(formatCompactAmount(projected));
         paceValueText.setTextColor(statusColor);
 
         paceEmptyText.setVisibility(hasHistory ? View.GONE : View.VISIBLE);
@@ -888,7 +885,7 @@ public class MainActivity extends Activity {
         paceBarView.setThemeColors(theme.colorBorder(), ink);
         privacyInfoText.setBackground(theme.makeCardDrawable());
         privacyInfoText.setPadding(theme.dp(12), theme.dp(12), theme.dp(12), theme.dp(12));
-        // ADS: adContainer.setBackgroundColor(theme.colorSurface());
+        adContainer.setBackgroundColor(theme.colorSurface());
 
         // Drawer theming
         drawerScroll.setBackgroundColor(background);
@@ -1044,24 +1041,25 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
-        // ADS: if (adView != null) adView.pause();
+        if (adView != null) adView.pause();
         super.onPause();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        // ADS: if (adView != null) adView.resume();
+        if (adView != null) adView.resume();
         String type = expenseRadio.isChecked() ? EntryTypes.EXPENSE : EntryTypes.INCOME;
         buildCategoryChips(type);
         applyTheme();
         refreshDashboard();
         updateSmsBadge();
+        refreshNotificationDetectSwitch();
     }
 
     @Override
     protected void onDestroy() {
-        // ADS: if (adView != null) adView.destroy();
+        if (adView != null) adView.destroy();
         super.onDestroy();
     }
 }

@@ -43,19 +43,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:text="Parsed on your device from bank/UPI SMS. Nothing leaves your phone."
+        android:text="Parsed on your device from bank/UPI SMS. Nothing leaves your phone. Turn on auto-detect from the menu, or share a message here from Messages anytime."
         android:textSize="13sp" />
-
-    <Button
-        android:id="@+id/scanInboxButton"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="14dp"
-        android:background="@drawable/primary_button"
-        android:text="Scan SMS inbox for past transactions"
-        android:textAllCaps="false"
-        android:textColor="@android:color/white"
-        android:textStyle="bold" />
 
     <FrameLayout
         android:layout_width="match_parent"
@@ -86,4 +75,11 @@
             android:textSize="15sp"
             android:visibility="gone" />
     </FrameLayout>
+
+    <FrameLayout
+        android:id="@+id/adContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:minHeight="50dp" />
 </LinearLayout>

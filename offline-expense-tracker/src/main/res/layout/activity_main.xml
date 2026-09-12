@@ -137,7 +137,8 @@
                         <LinearLayout
                             android:id="@+id/todaySummaryCell"
                             android:layout_width="0dp"
-                            android:layout_height="82dp"
+                            android:layout_height="wrap_content"
+                            android:minHeight="82dp"
                             android:layout_marginEnd="6dp"
                             android:layout_weight="1"
                             android:background="@drawable/input_background"
@@ -155,9 +156,10 @@
 
                             <TextView
                                 android:id="@+id/todaySpentText"
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="5dp"
+                                android:gravity="center"
                                 android:textColor="@color/expense"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
@@ -166,7 +168,8 @@
                         <LinearLayout
                             android:id="@+id/monthSummaryCell"
                             android:layout_width="0dp"
-                            android:layout_height="82dp"
+                            android:layout_height="wrap_content"
+                            android:minHeight="82dp"
                             android:layout_marginStart="6dp"
                             android:layout_marginEnd="6dp"
                             android:layout_weight="1"
@@ -185,9 +188,10 @@
 
                             <TextView
                                 android:id="@+id/monthSpentText"
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="5dp"
+                                android:gravity="center"
                                 android:textColor="@color/expense"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
@@ -196,7 +200,8 @@
                         <LinearLayout
                             android:id="@+id/paceSummaryCell"
                             android:layout_width="0dp"
-                            android:layout_height="82dp"
+                            android:layout_height="wrap_content"
+                            android:minHeight="82dp"
                             android:layout_marginStart="6dp"
                             android:layout_weight="1"
                             android:background="@drawable/input_background"
@@ -214,9 +219,10 @@
 
                             <TextView
                                 android:id="@+id/paceValueText"
-                                android:layout_width="wrap_content"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="5dp"
+                                android:gravity="center"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
                         </LinearLayout>
@@ -613,13 +619,11 @@
             </LinearLayout>
         </ScrollView>
 
-        <!-- ADS:
         <FrameLayout
             android:id="@+id/adContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:minHeight="50dp" />
-        -->
     </LinearLayout>
 
     <!-- ═══════════════════ SIDE DRAWER ═══════════════════ -->
@@ -751,7 +755,7 @@
                 android:background="@color/border"
                 android:layout_marginBottom="4dp" />
 
-            <!-- Auto-detect from SMS toggle -->
+            <!-- Auto-detect from bank SMS notifications toggle -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
@@ -763,7 +767,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:paddingStart="4dp"
-                    android:text="Auto-detect from SMS"
+                    android:text="Auto-detect transactions"
                     android:textColor="@color/ink"
                     android:textSize="14sp" />
 
@@ -772,6 +776,15 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content" />
             </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="4dp"
+                android:paddingBottom="4dp"
+                android:text="Reads bank/UPI notifications from your messaging app. You can also share a message into SMS Suggestions manually anytime."
+                android:textColor="@color/muted"
+                android:textSize="11sp" />
 
             <View
                 android:layout_width="match_parent"

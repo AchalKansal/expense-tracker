@@ -32,6 +32,7 @@ import com.google.android.gms.ads.AdRequest;
 import com.google.android.gms.ads.AdSize;
 import com.google.android.gms.ads.AdView;
 import com.google.android.gms.ads.MobileAds;
+import com.google.android.gms.ads.nativead.NativeAdView;
 
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
@@ -129,6 +130,8 @@ public class MainActivity extends Activity {
     private TextView dateButton;
     private Switch themeSwitch;
     private AdView adView;
+    private NativeAdView nativeAdRowView;
+    private NativeAdView nativeAdCardView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -159,7 +162,24 @@ public class MainActivity extends Activity {
         setupDrawer();
         setupSmsAutoDetect();
         setupBottomBannerAd();
+        setupNativeAds();
         refreshDashboard();
+    }
+
+    /**
+     * Native placements are optional enhancements layered on top of the dashboard: a row
+     * blended into "Recent entries" (only once there are enough real entries to not feel like
+     * the very first thing on the list), and a card at the end of the Overview chart section.
+     */
+    private void setupNativeAds() {
+        NativeAds.loadRow(this, theme, adView -> {
+            nativeAdRowView = adView;
+            renderEntries(databaseHelper.getRecentEntries(10));
+        });
+        NativeAds.loadCard(this, theme, adView -> {
+            nativeAdCardView = adView;
+            chartSection.addView(adView);
+        });
     }
 
     private void bindViews() {
@@ -375,7 +395,7 @@ public class MainActivity extends Activity {
     }
 
     private void applyChipStyle(TextView chip, boolean selected) {
-        chip.setTextColor(selected ? Color.WHITE : theme.colorInk());
+        chip.setTextColor(selected ? theme.colorOnAccentFill() : theme.colorInk());
         chip.setBackground(selected ? theme.makeActiveToggleDrawable() : theme.makeToggleDrawable());
     }
 
@@ -775,8 +795,16 @@ public class MainActivity extends Activity {
         entriesContainer.removeAllViews();
         boolean showEmpty = entries.isEmpty() && entryTabRadio.isChecked();
         emptyText.setVisibility(showEmpty ? View.VISIBLE : View.GONE);
-        for (ExpenseEntry entry : entries) {
-            entriesContainer.addView(createEntryRow(entry));
+        for (int i = 0; i < entries.size(); i++) {
+            entriesContainer.addView(createEntryRow(entries.get(i)));
+            // Blend the native ad in after the 2nd real entry rather than at the very top of
+            // the list, and only once there are enough entries for that position to exist.
+            if (i == 1 && nativeAdRowView != null) {
+                if (nativeAdRowView.getParent() != null) {
+                    ((ViewGroup) nativeAdRowView.getParent()).removeView(nativeAdRowView);
+                }
+                entriesContainer.addView(nativeAdRowView);
+            }
         }
     }
 
@@ -920,7 +948,7 @@ public class MainActivity extends Activity {
             input.setPadding(theme.dp(14), 0, theme.dp(14), 0);
         }
 
-        addButton.setTextColor(Color.WHITE);
+        addButton.setTextColor(theme.colorOnAccentFill());
         addButton.setBackground(theme.makePremiumButtonDrawable());
 
         // View all link styling
@@ -973,7 +1001,7 @@ public class MainActivity extends Activity {
 
     private void styleToggle(TextView view) {
         boolean checked = view instanceof RadioButton && ((RadioButton) view).isChecked();
-        view.setTextColor(checked ? Color.WHITE : theme.colorInk());
+        view.setTextColor(checked ? theme.colorOnAccentFill() : theme.colorInk());
         view.setBackground(checked ? theme.makeActiveToggleDrawable() : theme.makeToggleDrawable());
     }
 
@@ -1060,6 +1088,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         if (adView != null) adView.destroy();
+        NativeAds.destroy(nativeAdRowView);
+        NativeAds.destroy(nativeAdCardView);
         super.onDestroy();
     }
 }

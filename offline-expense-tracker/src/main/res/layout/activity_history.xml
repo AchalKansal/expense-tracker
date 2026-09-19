@@ -126,7 +126,7 @@
             android:minWidth="0dp"
             android:text="CSV"
             android:textAllCaps="false"
-            android:textColor="@android:color/white"
+            android:textColor="@color/on_accent"
             android:textStyle="bold" />
 
         <Button
@@ -141,7 +141,7 @@
             android:minWidth="0dp"
             android:text="Backup"
             android:textAllCaps="false"
-            android:textColor="@android:color/white"
+            android:textColor="@color/on_accent"
             android:textStyle="bold" />
 
         <Button
@@ -155,7 +155,7 @@
             android:minWidth="0dp"
             android:text="Restore"
             android:textAllCaps="false"
-            android:textColor="@android:color/white"
+            android:textColor="@color/on_accent"
             android:textStyle="bold" />
     </LinearLayout>
 

@@ -17,9 +17,9 @@ final class PaceBarView extends View {
     private final RectF trackRect = new RectF();
     private final Path clipPath = new Path();
 
-    private int trackColor = Color.rgb(226, 232, 240);
-    private int tickColor = Color.rgb(15, 23, 42);
-    private int barColor = Color.rgb(37, 99, 235);
+    private int trackColor = Color.rgb(232, 228, 218);
+    private int tickColor = Color.rgb(30, 27, 22);
+    private int barColor = Color.rgb(15, 118, 110);
     private float spentFraction = 0f;
     private float projectedFraction = 0f;
     private float tickFraction = -1f;

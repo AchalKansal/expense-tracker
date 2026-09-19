@@ -130,7 +130,7 @@
                 android:background="@drawable/primary_button"
                 android:text="Save Changes"
                 android:textAllCaps="false"
-                android:textColor="@android:color/white"
+                android:textColor="@color/on_accent"
                 android:textStyle="bold" />
         </LinearLayout>
     </ScrollView>

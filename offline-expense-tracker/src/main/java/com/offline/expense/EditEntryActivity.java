@@ -243,7 +243,7 @@ public class EditEntryActivity extends Activity {
         noteInput.setPadding(theme.dp(14), 0, theme.dp(14), 0);
         categorySpinner.setBackground(theme.makeInputDrawable());
         saveButton.setBackground(theme.makePremiumButtonDrawable());
-        saveButton.setTextColor(Color.WHITE);
+        saveButton.setTextColor(theme.colorOnAccentFill());
         adContainer.setBackgroundColor(theme.colorSurface());
         getWindow().setStatusBarColor(theme.colorBackground());
         getWindow().setNavigationBarColor(theme.colorBackground());
@@ -288,7 +288,7 @@ public class EditEntryActivity extends Activity {
 
     private void styleToggle(TextView view) {
         boolean checked = view instanceof RadioButton && ((RadioButton) view).isChecked();
-        view.setTextColor(checked ? Color.WHITE : theme.colorInk());
+        view.setTextColor(checked ? theme.colorOnAccentFill() : theme.colorInk());
         view.setBackground(checked ? theme.makeActiveToggleDrawable() : theme.makeToggleDrawable());
     }
 }

@@ -28,6 +28,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.ads.AdView;
+import com.google.android.gms.ads.nativead.NativeAdView;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -79,6 +80,7 @@ public class HistoryActivity extends Activity {
     private Button backupButton;
     private Button restoreButton;
     private Button deleteMonthButton;
+    private NativeAdView nativeAdRowView;
     private FrameLayout adContainer;
     private AdView adView;
 
@@ -108,6 +110,10 @@ public class HistoryActivity extends Activity {
         applyTheme();
         renderHistory();
         adView = BannerAds.attach(this, adContainer);
+        NativeAds.loadRow(this, theme, loadedView -> {
+            nativeAdRowView = loadedView;
+            renderHistory();
+        });
     }
 
     private void bindViews() {
@@ -223,6 +229,7 @@ public class HistoryActivity extends Activity {
         LinearLayout monthGroup = null;
         double monthTotal = 0.0;
         TextView monthTitle = null;
+        boolean insertedNativeAd = false;
 
         for (ExpenseEntry entry : expenses) {
             String month = monthFormat.format(new Date(entry.createdAt));
@@ -233,6 +240,16 @@ public class HistoryActivity extends Activity {
                 monthTitle = createMonthTitle(month, monthTotal);
                 monthGroup.addView(monthTitle);
                 historyContainer.addView(monthGroup);
+
+                // Blend the native ad in after the first month's card rather than at the very
+                // top of the list.
+                if (!insertedNativeAd && nativeAdRowView != null) {
+                    insertedNativeAd = true;
+                    if (nativeAdRowView.getParent() != null) {
+                        ((ViewGroup) nativeAdRowView.getParent()).removeView(nativeAdRowView);
+                    }
+                    historyContainer.addView(nativeAdRowView);
+                }
             }
 
             monthTotal += entry.isIncome() ? entry.amount : -entry.amount;
@@ -486,7 +503,7 @@ public class HistoryActivity extends Activity {
         dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
 
         LinearLayout actionRow = createDialogActionRow(dialog::dismiss);
-        Button nextButton = createDialogButton("Next", theme.makePremiumButtonDrawable(), Color.WHITE);
+        Button nextButton = createDialogButton("Next", theme.makePremiumButtonDrawable(), theme.colorOnAccentFill());
         nextButton.setOnClickListener(view -> {
             dialog.dismiss();
             confirmDeleteMonth(monthSpinner.getSelectedItemPosition(),
@@ -628,6 +645,7 @@ public class HistoryActivity extends Activity {
     @Override
     protected void onDestroy() {
         if (adView != null) adView.destroy();
+        NativeAds.destroy(nativeAdRowView);
         super.onDestroy();
     }
 
@@ -767,7 +785,7 @@ public class HistoryActivity extends Activity {
         backButton.setTextColor(theme.colorInk());
         Button[] primaryButtons = {exportButton, backupButton, restoreButton};
         for (Button button : primaryButtons) {
-            button.setTextColor(Color.WHITE);
+            button.setTextColor(theme.colorOnAccentFill());
             button.setBackground(theme.makePremiumButtonDrawable());
         }
         deleteMonthButton.setTextColor(theme.colorDanger());

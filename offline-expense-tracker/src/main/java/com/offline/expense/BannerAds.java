@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.DisplayMetrics;
+import android.view.View;
 import android.widget.FrameLayout;
 
 import com.google.android.gms.ads.AdListener;
@@ -19,6 +20,10 @@ final class BannerAds {
     private static final int MAX_RETRIES = 3;
     private static final int RETRY_BASE_DELAY_MS = 15_000;
 
+    // Google's AdMob Ad Refresh policy sets a hard minimum of 30s between automatic banner
+    // refreshes; refreshing faster than this is a policy violation tied to invalid traffic.
+    private static final int REFRESH_INTERVAL_MS = 30_000;
+
     private BannerAds() {}
 
     static AdView attach(Activity activity, FrameLayout container) {
@@ -27,7 +32,7 @@ final class BannerAds {
         adView.setAdSize(resolveAdaptiveBannerSize(activity, container));
         container.addView(adView);
 
-        Handler retryHandler = new Handler(Looper.getMainLooper());
+        Handler handler = new Handler(Looper.getMainLooper());
         adView.setAdListener(new AdListener() {
             private int retryCount = 0;
 
@@ -43,11 +48,36 @@ final class BannerAds {
                 if (retryCount >= MAX_RETRIES) return;
                 retryCount++;
                 long delay = (long) RETRY_BASE_DELAY_MS * retryCount;
-                retryHandler.postDelayed(() -> {
+                handler.postDelayed(() -> {
                     if (adView.isAttachedToWindow()) {
                         adView.loadAd(new AdRequest.Builder().build());
                     }
                 }, delay);
+            }
+        });
+
+        Runnable refreshLoop = new Runnable() {
+            @Override
+            public void run() {
+                if (adView.isAttachedToWindow()) {
+                    adView.loadAd(new AdRequest.Builder().build());
+                }
+                handler.postDelayed(this, REFRESH_INTERVAL_MS);
+            }
+        };
+
+        // Start the refresh loop once the view is actually on screen, and stop it the moment
+        // this screen is torn down — so a screen you've navigated away from doesn't keep
+        // silently spending ad requests in the background.
+        adView.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View v) {
+                handler.postDelayed(refreshLoop, REFRESH_INTERVAL_MS);
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(View v) {
+                handler.removeCallbacksAndMessages(null);
             }
         });
 

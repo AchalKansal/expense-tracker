@@ -41,9 +41,9 @@ public class CategoryChartView extends View {
     private final SimpleDateFormat monthLabelFormat = new SimpleDateFormat("MMM", Locale.getDefault());
     private final List<CategoryTotal> data = new ArrayList<>();
     private final List<DayTotal> trendData = new ArrayList<>();
-    private int accentColor = Color.rgb(37, 99, 235);
-    private int labelColor = Color.rgb(32, 33, 36);
-    private int mutedColor = Color.rgb(109, 113, 120);
+    private int accentColor = Color.rgb(15, 118, 110);
+    private int labelColor = Color.rgb(30, 27, 22);
+    private int mutedColor = Color.rgb(111, 106, 94);
     private int surfaceColor = Color.WHITE;
     private int mode = MODE_DONUT;
     private static final int DONUT_NAMED_SLICES = 5;

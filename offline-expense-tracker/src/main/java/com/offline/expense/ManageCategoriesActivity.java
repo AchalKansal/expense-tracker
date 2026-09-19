@@ -76,19 +76,24 @@ public class ManageCategoriesActivity extends Activity {
         titleRow.setOrientation(LinearLayout.HORIZONTAL);
         titleRow.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView backBtn = new TextView(this);
-        backBtn.setText("Back");
-        backBtn.setTextSize(15);
-        backBtn.setTextColor(theme.colorPrimary());
-        backBtn.setPaintFlags(backBtn.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-        backBtn.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        Button backBtn = new Button(this);
+        backBtn.setText("←");
+        backBtn.setAllCaps(false);
+        backBtn.setTextSize(26);
+        backBtn.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        backBtn.setTextColor(theme.colorInk());
+        backBtn.setBackgroundColor(Color.TRANSPARENT);
+        backBtn.setIncludeFontPadding(false);
+        backBtn.setMinWidth(0);
+        backBtn.setMinHeight(0);
+        backBtn.setPadding(0, 0, 0, 0);
+        backBtn.setLayoutParams(new LinearLayout.LayoutParams(theme.dp(48), theme.dp(44)));
         backBtn.setOnClickListener(v -> finish());
 
         TextView titleTv = new TextView(this);
         titleTv.setText("Manage Categories");
         titleTv.setTextColor(theme.colorInk());
-        titleTv.setTextSize(21);
+        titleTv.setTextSize(24);
         titleTv.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -158,7 +163,7 @@ public class ManageCategoriesActivity extends Activity {
         addBtn.setText("Add");
         addBtn.setAllCaps(false);
         addBtn.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        addBtn.setTextColor(Color.WHITE);
+        addBtn.setTextColor(theme.colorOnAccentFill());
         addBtn.setBackground(theme.makePremiumButtonDrawable());
         addBtn.setLayoutParams(new LinearLayout.LayoutParams(theme.dp(80), LinearLayout.LayoutParams.MATCH_PARENT));
         addBtn.setMinWidth(0);
@@ -251,9 +256,9 @@ public class ManageCategoriesActivity extends Activity {
     private void applyTypeButtonStyles() {
         boolean expActive = currentType.equals(EntryTypes.EXPENSE);
         expTypeBtn.setBackground(expActive ? theme.makeActiveToggleDrawable() : theme.makeToggleDrawable());
-        expTypeBtn.setTextColor(expActive ? Color.WHITE : theme.colorInk());
+        expTypeBtn.setTextColor(expActive ? theme.colorOnAccentFill() : theme.colorInk());
         incTypeBtn.setBackground(!expActive ? theme.makeActiveToggleDrawable() : theme.makeToggleDrawable());
-        incTypeBtn.setTextColor(!expActive ? Color.WHITE : theme.colorInk());
+        incTypeBtn.setTextColor(!expActive ? theme.colorOnAccentFill() : theme.colorInk());
     }
 
     private void refreshList() {
@@ -348,7 +353,7 @@ public class ManageCategoriesActivity extends Activity {
         confirmBtn.setText("✓");
         confirmBtn.setTextSize(16);
         confirmBtn.setAllCaps(false);
-        confirmBtn.setTextColor(Color.WHITE);
+        confirmBtn.setTextColor(theme.colorOnAccentFill());
         confirmBtn.setBackground(theme.makePremiumButtonDrawable());
         confirmBtn.setMinWidth(0);
         confirmBtn.setMinHeight(0);

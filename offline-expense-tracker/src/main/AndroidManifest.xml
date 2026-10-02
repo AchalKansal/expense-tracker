@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Nearby Connections declares Bluetooth LE as required hardware by default, which
+         silently drops the app from devices without BLE. Override to optional since the
+         rest of the app works fully without it - only the nearby-sync feature needs it. -->
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 

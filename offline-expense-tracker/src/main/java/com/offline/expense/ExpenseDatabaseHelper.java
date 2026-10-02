@@ -16,11 +16,17 @@ import java.util.TimeZone;
 
 final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "offline_expenses.db";
-    private static final int DATABASE_VERSION = 6;
+    private static final int DATABASE_VERSION = 7;
     private static final String TABLE_ENTRIES = "entries";
     private static final String TABLE_CATEGORIES = "categories";
     private static final String TABLE_SMS_SUGGESTIONS = "sms_suggestions";
     private static final String TABLE_MERCHANT_CATEGORIES = "merchant_categories";
+    private static final String TABLE_SHARED_EXPENSES = "shared_expenses";
+
+    static final String PAID_BY_ME = "me";
+    static final String PAID_BY_FRIEND = "friend";
+    static final String SHARED_ORIGIN_LOCAL = "local";
+    static final String SHARED_ORIGIN_RECEIVED = "received";
 
     private static final String[] DEFAULT_EXPENSE_CATEGORIES = {
             "Food", "Transport", "Shopping", "Bills", "Health", "Rent", "Family", "Investment", "Other"
@@ -48,6 +54,7 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
         createCategoriesTable(db);
         createSmsSuggestionsTable(db);
         createMerchantCategoriesTable(db);
+        createSharedExpensesTable(db);
         seedDefaultCategories(db);
     }
 
@@ -68,6 +75,9 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 6) {
             createMerchantCategoriesTable(db);
+        }
+        if (oldVersion < 7) {
+            createSharedExpensesTable(db);
         }
     }
 
@@ -155,6 +165,145 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
                 TABLE_MERCHANT_CATEGORIES, null, values, SQLiteDatabase.CONFLICT_REPLACE);
     }
 
+    private void createSharedExpensesTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_SHARED_EXPENSES + " (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "entry_id INTEGER NOT NULL, " +
+                "friend_name TEXT NOT NULL, " +
+                "total_amount REAL NOT NULL, " +
+                "my_share REAL NOT NULL, " +
+                "friend_share REAL NOT NULL, " +
+                "paid_by TEXT NOT NULL, " +
+                "settled INTEGER NOT NULL DEFAULT 0, " +
+                "created_at INTEGER NOT NULL, " +
+                "origin TEXT NOT NULL DEFAULT 'local'" +
+                ")");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_shared_expenses_friend ON " +
+                TABLE_SHARED_EXPENSES + "(friend_name, settled)");
+    }
+
+    /** Adds a split expense: a normal entry for the user's own share, plus the shared-expense bookkeeping row. */
+    long addSharedExpense(String friendName, double totalAmount, double myShare, double friendShare,
+                           String paidBy, String category, String note, long createdAt, String origin) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+        try {
+            long entryId = addEntryInternal(db, EntryTypes.EXPENSE, myShare, category, note, createdAt);
+            if (entryId == -1) return -1;
+
+            ContentValues values = new ContentValues();
+            values.put("entry_id", entryId);
+            values.put("friend_name", friendName);
+            values.put("total_amount", totalAmount);
+            values.put("my_share", myShare);
+            values.put("friend_share", friendShare);
+            values.put("paid_by", paidBy);
+            values.put("settled", 0);
+            values.put("created_at", createdAt);
+            values.put("origin", origin);
+            long id = db.insert(TABLE_SHARED_EXPENSES, null, values);
+            db.setTransactionSuccessful();
+            return id;
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    List<FriendBalance> getFriendBalances() {
+        List<FriendBalance> balances = new ArrayList<>();
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT friend_name, " +
+                "SUM(CASE WHEN paid_by = ? THEN friend_share ELSE -my_share END) AS net, " +
+                "COUNT(*) AS unsettled_count " +
+                "FROM " + TABLE_SHARED_EXPENSES +
+                " WHERE settled = 0 GROUP BY friend_name ORDER BY friend_name COLLATE NOCASE",
+                new String[]{PAID_BY_ME}
+        );
+        try {
+            while (cursor.moveToNext()) {
+                balances.add(new FriendBalance(cursor.getString(0), cursor.getDouble(1), cursor.getInt(2)));
+            }
+        } finally {
+            cursor.close();
+        }
+        return balances;
+    }
+
+    List<SharedExpense> getSharedExpensesForFriend(String friendName) {
+        List<SharedExpense> items = new ArrayList<>();
+        Cursor cursor = getReadableDatabase().query(
+                TABLE_SHARED_EXPENSES,
+                null,
+                "friend_name = ?",
+                new String[]{friendName},
+                null,
+                null,
+                "created_at DESC, id DESC"
+        );
+        try {
+            while (cursor.moveToNext()) {
+                items.add(readSharedExpense(cursor));
+            }
+        } finally {
+            cursor.close();
+        }
+        return items;
+    }
+
+    void settleFriend(String friendName) {
+        ContentValues values = new ContentValues();
+        values.put("settled", 1);
+        getWritableDatabase().update(TABLE_SHARED_EXPENSES, values,
+                "friend_name = ? AND settled = 0", new String[]{friendName});
+    }
+
+    SharedExpense getSharedExpenseById(long id) {
+        Cursor cursor = getReadableDatabase().query(
+                TABLE_SHARED_EXPENSES,
+                null,
+                "id = ?",
+                new String[]{String.valueOf(id)},
+                null,
+                null,
+                null
+        );
+        try {
+            return cursor.moveToFirst() ? readSharedExpense(cursor) : null;
+        } finally {
+            cursor.close();
+        }
+    }
+
+    List<String> getDistinctFriendNames() {
+        List<String> names = new ArrayList<>();
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT DISTINCT friend_name FROM " + TABLE_SHARED_EXPENSES +
+                " ORDER BY friend_name COLLATE NOCASE", null);
+        try {
+            while (cursor.moveToNext()) {
+                names.add(cursor.getString(0));
+            }
+        } finally {
+            cursor.close();
+        }
+        return names;
+    }
+
+    private SharedExpense readSharedExpense(Cursor cursor) {
+        return new SharedExpense(
+                cursor.getLong(cursor.getColumnIndexOrThrow("id")),
+                cursor.getLong(cursor.getColumnIndexOrThrow("entry_id")),
+                cursor.getString(cursor.getColumnIndexOrThrow("friend_name")),
+                cursor.getDouble(cursor.getColumnIndexOrThrow("total_amount")),
+                cursor.getDouble(cursor.getColumnIndexOrThrow("my_share")),
+                cursor.getDouble(cursor.getColumnIndexOrThrow("friend_share")),
+                cursor.getString(cursor.getColumnIndexOrThrow("paid_by")),
+                cursor.getInt(cursor.getColumnIndexOrThrow("settled")) != 0,
+                cursor.getLong(cursor.getColumnIndexOrThrow("created_at")),
+                cursor.getString(cursor.getColumnIndexOrThrow("origin"))
+        );
+    }
+
     private void seedDefaultCategories(SQLiteDatabase db) {
         for (String category : DEFAULT_EXPENSE_CATEGORIES) {
             insertCategory(db, EntryTypes.EXPENSE, category);
@@ -172,13 +321,17 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
     }
 
     long addEntry(String type, double amount, String category, String note, long createdAt) {
+        return addEntryInternal(getWritableDatabase(), type, amount, category, note, createdAt);
+    }
+
+    private long addEntryInternal(SQLiteDatabase db, String type, double amount, String category, String note, long createdAt) {
         ContentValues values = new ContentValues();
         values.put("type", type);
         values.put("amount", amount);
         values.put("category", category);
         values.put("note", note);
         values.put("created_at", createdAt);
-        return getWritableDatabase().insert(TABLE_ENTRIES, null, values);
+        return db.insert(TABLE_ENTRIES, null, values);
     }
 
     void updateEntry(long id, String type, double amount, String category, String note, long createdAt) {

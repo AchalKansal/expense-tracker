@@ -46,6 +46,7 @@ import java.util.Locale;
 public class HistoryActivity extends Activity {
     private static final String PREFS_NAME = "expense_tracker_prefs";
     private static final String KEY_DARK_MODE = "dark_mode";
+    private static final String KEY_ACCENT_THEME = "accent_theme";
     private static final int REQUEST_EXPORT_CSV = 1001;
     private static final int REQUEST_BACKUP = 1002;
     private static final int REQUEST_RESTORE = 1003;
@@ -97,7 +98,8 @@ public class HistoryActivity extends Activity {
         buttonDateFormat = new SimpleDateFormat("dd MMM yyyy", Locale.getDefault());
         SharedPreferences preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         darkMode = preferences.getBoolean(KEY_DARK_MODE, false);
-        theme = new ThemeHelper(darkMode, getResources().getDisplayMetrics().density);
+        AccentTheme accentTheme = AccentTheme.fromPrefsValue(preferences.getString(KEY_ACCENT_THEME, null));
+        theme = new ThemeHelper(darkMode, accentTheme, getResources().getDisplayMetrics().density);
 
         // Default custom range = this month
         customStartMillis = getStartOfMonth();

@@ -5,10 +5,12 @@ import android.graphics.drawable.GradientDrawable;
 
 final class ThemeHelper {
     private final boolean darkMode;
+    private final AccentTheme accentTheme;
     private final float density;
 
-    ThemeHelper(boolean darkMode, float density) {
+    ThemeHelper(boolean darkMode, AccentTheme accentTheme, float density) {
         this.darkMode = darkMode;
+        this.accentTheme = accentTheme;
         this.density = density;
     }
 
@@ -38,29 +40,30 @@ final class ThemeHelper {
 
     // Readable mid-tone accent for plain text/icons/links sitting directly on the
     // background or a card (not on a filled button) - needs real contrast, so it's a
-    // deeper shade of the pastel fill below, lightened for dark mode.
+    // deeper shade of the pastel fill below, lightened for dark mode. Both shift with the
+    // user's chosen accent theme.
     int colorPrimary() {
-        return darkMode ? Color.rgb(127, 195, 232) : Color.rgb(46, 118, 166);
+        return accentTheme.primary(darkMode);
     }
 
     int colorAccent() {
-        return darkMode ? Color.rgb(158, 212, 239) : Color.rgb(61, 141, 191);
+        return accentTheme.accent(darkMode);
     }
 
     // The pastel fill used for buttons, active tabs/toggles, and selected chips - stays
     // this light in both themes, since it's meant to pop as a light chip either way.
     int colorAccentFillStart() {
-        return Color.rgb(163, 209, 238);
+        return accentTheme.fillStart();
     }
 
     int colorAccentFillEnd() {
-        return Color.rgb(191, 224, 245);
+        return accentTheme.fillEnd();
     }
 
     // Text/icon color for content drawn on top of the pastel fill above - dark navy,
     // not white, since the fill itself is too light for white text to read on.
     int colorOnAccentFill() {
-        return Color.rgb(30, 74, 102);
+        return accentTheme.onAccentFill();
     }
 
     GradientDrawable makeCardDrawable() {
@@ -121,6 +124,14 @@ final class ThemeHelper {
         d.setColor(darkMode ? Color.argb(50, 239, 68, 68) : Color.argb(20, 239, 68, 68));
         d.setCornerRadius(dp(8));
         d.setStroke(dp(1), colorDanger());
+        return d;
+    }
+
+    GradientDrawable makeSwatchDrawable(int fillColor, boolean selected) {
+        GradientDrawable d = new GradientDrawable();
+        d.setShape(GradientDrawable.OVAL);
+        d.setColor(fillColor);
+        if (selected) d.setStroke(dp(2), colorInk());
         return d;
     }
 

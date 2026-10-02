@@ -6,6 +6,18 @@
     <!-- Used only to show a local notification when a transaction suggestion is found; nothing leaves the device. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Nearby Connections (device-to-device split-expense sync over Bluetooth/Wi-Fi Direct,
+         no internet/server involved): required on Android 12+. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- Only needed pre-Android 12 for BLE scanning; not requested on newer devices. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
@@ -42,6 +54,26 @@
         <activity
             android:name=".ManageCategoriesActivity"
             android:label="Manage categories"
+            android:exported="false" />
+
+        <activity
+            android:name=".SharedExpensesActivity"
+            android:label="Shared expenses"
+            android:exported="false" />
+
+        <activity
+            android:name=".SettingsActivity"
+            android:label="Settings"
+            android:exported="false" />
+
+        <activity
+            android:name=".SplitEntryActivity"
+            android:label="Split expense"
+            android:exported="false" />
+
+        <activity
+            android:name=".NearbySyncActivity"
+            android:label="Sync with friend"
             android:exported="false" />
 
         <activity

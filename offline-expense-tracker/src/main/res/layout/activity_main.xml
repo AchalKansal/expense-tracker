@@ -75,13 +75,6 @@
                             android:textSize="14sp" />
                     </LinearLayout>
 
-                    <Switch
-                        android:id="@+id/themeSwitch"
-                        android:layout_width="wrap_content"
-                        android:layout_height="48dp"
-                        android:text="Dark"
-                        android:textColor="@color/ink"
-                        android:textStyle="bold" />
                 </LinearLayout>
 
                 <!-- Tabs -->
@@ -704,6 +697,42 @@
                 android:gravity="center_vertical"
                 android:paddingStart="4dp"
                 android:text="🏷️  Manage Categories"
+                android:textColor="@color/ink"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/border"
+                android:layout_marginBottom="4dp" />
+
+            <!-- Shared expenses nav item -->
+            <TextView
+                android:id="@+id/drawerSharedExpensesItem"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:gravity="center_vertical"
+                android:paddingStart="4dp"
+                android:text="🤝  Shared Expenses"
+                android:textColor="@color/ink"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/border"
+                android:layout_marginBottom="4dp" />
+
+            <!-- Settings nav item -->
+            <TextView
+                android:id="@+id/drawerSettingsItem"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:gravity="center_vertical"
+                android:paddingStart="4dp"
+                android:text="⚙️  Settings"
                 android:textColor="@color/ink"
                 android:textSize="15sp"
                 android:textStyle="bold" />

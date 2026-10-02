@@ -45,6 +45,7 @@ import java.util.Locale;
 public class MainActivity extends Activity {
     private static final String PREFS_NAME = "expense_tracker_prefs";
     private static final String KEY_DARK_MODE = "dark_mode";
+    private static final String KEY_ACCENT_THEME = "accent_theme";
     private static final String KEY_NOTIFICATION_DETECT_ENABLED =
             SmsNotificationListenerService.KEY_NOTIFICATION_DETECT_ENABLED;
     private static final String BANNER_AD_UNIT_ID = "ca-app-pub-1377363250840020/6830180927";
@@ -56,6 +57,7 @@ public class MainActivity extends Activity {
     private SimpleDateFormat entryDateFormat;
     private SharedPreferences preferences;
     private boolean darkMode;
+    private AccentTheme accentTheme;
     private long selectedEntryDateMillis;
     private String selectedCategory = "";
 
@@ -67,6 +69,8 @@ public class MainActivity extends Activity {
     private TextView drawerOverviewItem;
     private TextView drawerHistoryItem;
     private TextView drawerManageCategoriesItem;
+    private TextView drawerSharedExpensesItem;
+    private TextView drawerSettingsItem;
     private TextView drawerViewAllText;
     private LinearLayout drawerSmsItem;
     private TextView drawerSmsItemText;
@@ -128,10 +132,11 @@ public class MainActivity extends Activity {
     private Button addButton;
     private TextView menuButton;
     private TextView dateButton;
-    private Switch themeSwitch;
     private AdView adView;
-    private NativeAdView nativeAdRowView;
-    private NativeAdView nativeAdCardView;
+    private final List<NativeAdView> nativeAdRowViews = new ArrayList<>();
+    private final List<NativeAdView> nativeAdCardViews = new ArrayList<>();
+    private NativeAdView nativeAdEntriesCardView;
+    private AppUpdateHelper appUpdateHelper;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -145,7 +150,8 @@ public class MainActivity extends Activity {
         entryDateFormat = new SimpleDateFormat("dd MMM yyyy", Locale.getDefault());
         preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         darkMode = preferences.getBoolean(KEY_DARK_MODE, false);
-        theme = new ThemeHelper(darkMode, getResources().getDisplayMetrics().density);
+        accentTheme = AccentTheme.fromPrefsValue(preferences.getString(KEY_ACCENT_THEME, null));
+        theme = new ThemeHelper(darkMode, accentTheme, getResources().getDisplayMetrics().density);
         selectedEntryDateMillis = System.currentTimeMillis();
 
         bindViews();
@@ -158,26 +164,33 @@ public class MainActivity extends Activity {
         setupViewAllLink();
         setupDatePicker();
         setupChartControls();
-        setupThemeToggle();
         setupDrawer();
         setupSmsAutoDetect();
         setupBottomBannerAd();
         setupNativeAds();
         refreshDashboard();
+
+        appUpdateHelper = new AppUpdateHelper(this);
+        appUpdateHelper.checkForUpdate();
     }
 
     /**
-     * Native placements are optional enhancements layered on top of the dashboard: a row
-     * blended into "Recent entries" (only once there are enough real entries to not feel like
-     * the very first thing on the list), and a card at the end of the Overview chart section.
+     * Native placements are optional enhancements layered on top of the dashboard: up to 3 rows
+     * spread through "Recent entries" plus a card at the very end of that list (only once
+     * there are enough real entries to not feel like the very first thing on the list), and up
+     * to 2 cards at the end of the Overview chart section.
      */
     private void setupNativeAds() {
-        NativeAds.loadRow(this, theme, adView -> {
-            nativeAdRowView = adView;
+        NativeAds.loadRows(this, theme, 3, adView -> {
+            nativeAdRowViews.add(adView);
             renderEntries(databaseHelper.getRecentEntries(10));
         });
-        NativeAds.loadCard(this, theme, adView -> {
-            nativeAdCardView = adView;
+        NativeAds.loadCards(this, theme, 1, adView -> {
+            nativeAdEntriesCardView = adView;
+            renderEntries(databaseHelper.getRecentEntries(10));
+        });
+        NativeAds.loadCards(this, theme, 2, adView -> {
+            nativeAdCardViews.add(adView);
             chartSection.addView(adView);
         });
     }
@@ -191,6 +204,8 @@ public class MainActivity extends Activity {
         drawerOverviewItem = findViewById(R.id.drawerOverviewItem);
         drawerHistoryItem = findViewById(R.id.drawerHistoryItem);
         drawerManageCategoriesItem = findViewById(R.id.drawerManageCategoriesItem);
+        drawerSharedExpensesItem = findViewById(R.id.drawerSharedExpensesItem);
+        drawerSettingsItem = findViewById(R.id.drawerSettingsItem);
         drawerViewAllText = findViewById(R.id.drawerViewAllText);
         drawerSmsItem = findViewById(R.id.drawerSmsItem);
         drawerSmsItemText = findViewById(R.id.drawerSmsItemText);
@@ -251,7 +266,6 @@ public class MainActivity extends Activity {
         addButton = findViewById(R.id.addButton);
         menuButton = findViewById(R.id.menuButton);
         dateButton = findViewById(R.id.dateButton);
-        themeSwitch = findViewById(R.id.themeSwitch);
     }
 
     private void applyWindowInsets() {
@@ -475,6 +489,16 @@ public class MainActivity extends Activity {
             startActivity(new Intent(this, ManageCategoriesActivity.class));
         });
 
+        drawerSharedExpensesItem.setOnClickListener(v -> {
+            drawerLayout.closeDrawer(drawerScroll);
+            startActivity(new Intent(this, SharedExpensesActivity.class));
+        });
+
+        drawerSettingsItem.setOnClickListener(v -> {
+            drawerLayout.closeDrawer(drawerScroll);
+            startActivity(new Intent(this, SettingsActivity.class));
+        });
+
         drawerViewAllText.setOnClickListener(v -> {
             drawerLayout.closeDrawer(drawerScroll);
             startActivity(new Intent(this, HistoryActivity.class));
@@ -597,15 +621,15 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void setupThemeToggle() {
-        themeSwitch.setChecked(darkMode);
-        themeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            darkMode = isChecked;
-            theme = new ThemeHelper(darkMode, getResources().getDisplayMetrics().density);
-            preferences.edit().putBoolean(KEY_DARK_MODE, darkMode).apply();
-            applyTheme();
-            refreshDashboard();
-        });
+    /** Re-reads dark mode/accent theme from prefs and rebuilds the ThemeHelper if either
+     *  changed since last time — both now live on SettingsActivity, not this screen. */
+    private void refreshThemeFromPreferences() {
+        boolean latestDarkMode = preferences.getBoolean(KEY_DARK_MODE, false);
+        AccentTheme latestAccentTheme = AccentTheme.fromPrefsValue(preferences.getString(KEY_ACCENT_THEME, null));
+        if (latestDarkMode == darkMode && latestAccentTheme == accentTheme) return;
+        darkMode = latestDarkMode;
+        accentTheme = latestAccentTheme;
+        theme = new ThemeHelper(darkMode, accentTheme, getResources().getDisplayMetrics().density);
     }
 
     private void setupBottomBannerAd() {
@@ -791,20 +815,35 @@ public class MainActivity extends Activity {
         chartSummaryText.setText(label + ": " + moneyFormat.format(total));
     }
 
+    // Spread out through the 10-item recent-entries list rather than stacked at the top —
+    // after the 2nd, 6th and 9th real entry — so each ad has real content around it. A slot
+    // simply doesn't render if fewer native ads loaded than expected (partial/no fill).
+    private static final int[] NATIVE_ROW_AD_POSITIONS = {1, 5, 8};
+
     private void renderEntries(List<ExpenseEntry> entries) {
         entriesContainer.removeAllViews();
         boolean showEmpty = entries.isEmpty() && entryTabRadio.isChecked();
         emptyText.setVisibility(showEmpty ? View.VISIBLE : View.GONE);
+        int adIndex = 0;
         for (int i = 0; i < entries.size(); i++) {
             entriesContainer.addView(createEntryRow(entries.get(i)));
-            // Blend the native ad in after the 2nd real entry rather than at the very top of
-            // the list, and only once there are enough entries for that position to exist.
-            if (i == 1 && nativeAdRowView != null) {
-                if (nativeAdRowView.getParent() != null) {
-                    ((ViewGroup) nativeAdRowView.getParent()).removeView(nativeAdRowView);
-                }
-                entriesContainer.addView(nativeAdRowView);
+            boolean isAdSlot = false;
+            for (int position : NATIVE_ROW_AD_POSITIONS) {
+                if (position == i) isAdSlot = true;
             }
+            if (isAdSlot && adIndex < nativeAdRowViews.size()) {
+                NativeAdView adView = nativeAdRowViews.get(adIndex++);
+                if (adView.getParent() != null) {
+                    ((ViewGroup) adView.getParent()).removeView(adView);
+                }
+                entriesContainer.addView(adView);
+            }
+        }
+        if (!entries.isEmpty() && nativeAdEntriesCardView != null) {
+            if (nativeAdEntriesCardView.getParent() != null) {
+                ((ViewGroup) nativeAdEntriesCardView.getParent()).removeView(nativeAdEntriesCardView);
+            }
+            entriesContainer.addView(nativeAdEntriesCardView);
         }
     }
 
@@ -900,8 +939,6 @@ public class MainActivity extends Activity {
         rootScroll.setBackgroundColor(background);
         rootContent.setBackgroundColor(background);
         headerPanel.setBackgroundColor(background);
-        themeSwitch.setText(darkMode ? "Light" : "Dark");
-        themeSwitch.setTextColor(ink);
 
         summaryCard.setBackground(theme.makeCardDrawable());
         todaySummaryCell.setBackground(theme.makeInputDrawable());
@@ -922,6 +959,8 @@ public class MainActivity extends Activity {
         drawerOverviewItem.setTextColor(ink);
         drawerHistoryItem.setTextColor(ink);
         drawerManageCategoriesItem.setTextColor(ink);
+        drawerSharedExpensesItem.setTextColor(ink);
+        drawerSettingsItem.setTextColor(ink);
         drawerViewAllText.setTextColor(theme.colorAccent());
         drawerSmsItemText.setTextColor(ink);
         drawerSmsBadge.setBackground(theme.makeBadgeDrawable(getColor(R.color.expense)));
@@ -1077,19 +1116,23 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (adView != null) adView.resume();
+        refreshThemeFromPreferences();
         String type = expenseRadio.isChecked() ? EntryTypes.EXPENSE : EntryTypes.INCOME;
         buildCategoryChips(type);
         applyTheme();
         refreshDashboard();
         updateSmsBadge();
         refreshNotificationDetectSwitch();
+        if (appUpdateHelper != null) appUpdateHelper.resumeIfDownloaded();
     }
 
     @Override
     protected void onDestroy() {
         if (adView != null) adView.destroy();
-        NativeAds.destroy(nativeAdRowView);
-        NativeAds.destroy(nativeAdCardView);
+        for (NativeAdView rowView : nativeAdRowViews) NativeAds.destroy(rowView);
+        for (NativeAdView cardView : nativeAdCardViews) NativeAds.destroy(cardView);
+        NativeAds.destroy(nativeAdEntriesCardView);
+        if (appUpdateHelper != null) appUpdateHelper.unregister();
         super.onDestroy();
     }
 }

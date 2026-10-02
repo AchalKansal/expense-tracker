@@ -29,6 +29,7 @@ import java.util.Locale;
 public class SmsReviewActivity extends Activity {
     private static final String PREFS_NAME = "expense_tracker_prefs";
     private static final String KEY_DARK_MODE = "dark_mode";
+    private static final String KEY_ACCENT_THEME = "accent_theme";
 
     private ExpenseDatabaseHelper databaseHelper;
     private ThemeHelper theme;
@@ -56,7 +57,8 @@ public class SmsReviewActivity extends Activity {
         dateFormat = new SimpleDateFormat("dd MMM, h:mm a", Locale.getDefault());
         SharedPreferences preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         darkMode = preferences.getBoolean(KEY_DARK_MODE, false);
-        theme = new ThemeHelper(darkMode, getResources().getDisplayMetrics().density);
+        AccentTheme accentTheme = AccentTheme.fromPrefsValue(preferences.getString(KEY_ACCENT_THEME, null));
+        theme = new ThemeHelper(darkMode, accentTheme, getResources().getDisplayMetrics().density);
 
         bindViews();
         applyWindowInsets();

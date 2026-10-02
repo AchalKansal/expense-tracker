@@ -39,11 +39,17 @@ final class NativeAds {
     private NativeAds() {}
 
     static void loadRow(Activity activity, ThemeHelper theme, Callback callback) {
-        load(activity, nativeAd -> callback.onLoaded(buildRowView(activity, theme, nativeAd)));
+        loadRows(activity, theme, 1, callback);
     }
 
-    static void loadCard(Activity activity, ThemeHelper theme, Callback callback) {
-        load(activity, nativeAd -> callback.onLoaded(buildCardView(activity, theme, nativeAd)));
+    /** count must be 1-5; callback fires once per ad that successfully loads (may be fewer than requested on partial fill). */
+    static void loadRows(Activity activity, ThemeHelper theme, int count, Callback callback) {
+        load(activity, count, nativeAd -> callback.onLoaded(buildRowView(activity, theme, nativeAd)));
+    }
+
+    /** count must be 1-5; callback fires once per ad that successfully loads (may be fewer than requested on partial fill). */
+    static void loadCards(Activity activity, ThemeHelper theme, int count, Callback callback) {
+        load(activity, count, nativeAd -> callback.onLoaded(buildCardView(activity, theme, nativeAd)));
     }
 
     /** Call from onDestroy for any NativeAdView returned above to release its resources. */
@@ -55,18 +61,24 @@ final class NativeAds {
         }
     }
 
-    private static void load(Activity activity, NativeAd.OnNativeAdLoadedListener onLoaded) {
+    private static void load(Activity activity, int count, NativeAd.OnNativeAdLoadedListener onLoaded) {
         AdLoader adLoader = new AdLoader.Builder(activity, NATIVE_AD_UNIT_ID)
                 .forNativeAd(onLoaded)
                 .withAdListener(new AdListener() {
                     @Override
                     public void onAdFailedToLoad(LoadAdError error) {
-                        // No-fill/error: this placement is an optional enhancement, not
-                        // guaranteed layout space, so we simply skip it rather than retry.
+                        // No-fill/error (or partial fill when requesting multiple): this
+                        // placement is an optional enhancement, not guaranteed layout space,
+                        // so we simply skip whatever didn't load rather than retry.
                     }
                 })
                 .build();
-        adLoader.loadAd(new AdRequest.Builder().build());
+        // loadAds() requires numAds >= 2; a single ad must go through loadAd() instead.
+        if (count <= 1) {
+            adLoader.loadAd(new AdRequest.Builder().build());
+        } else {
+            adLoader.loadAds(new AdRequest.Builder().build(), count);
+        }
     }
 
     private static TextView makeAdBadge(Activity activity, ThemeHelper theme) {

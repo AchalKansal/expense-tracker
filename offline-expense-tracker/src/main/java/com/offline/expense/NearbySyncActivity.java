@@ -268,7 +268,7 @@ public class NearbySyncActivity extends Activity {
     }
 
     private void applyTheme() {
-        syncRoot.setBackgroundColor(theme.colorBackground());
+        syncRoot.setBackground(theme.makeBackgroundDrawable());
         syncCard.setBackground(theme.makeCardDrawable());
         syncTitle.setTextColor(theme.colorInk());
         syncStatusText.setTextColor(theme.colorInk());

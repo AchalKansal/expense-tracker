@@ -278,7 +278,7 @@ public class SharedExpensesActivity extends Activity {
     }
 
     private void applyTheme() {
-        sharedRoot.setBackgroundColor(theme.colorBackground());
+        sharedRoot.setBackground(theme.makeBackgroundDrawable());
         sharedTitle.setTextColor(theme.colorInk());
         sharedSubtitle.setTextColor(theme.colorMuted());
         friendsEmptyText.setTextColor(theme.colorMuted());

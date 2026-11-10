@@ -77,19 +77,20 @@
 
                 </LinearLayout>
 
-                <!-- Tabs -->
+                <!-- Primary view selector stays close to the dashboard heading. -->
                 <RadioGroup
                     android:id="@+id/mainTabGroup"
                     android:layout_width="match_parent"
-                    android:layout_height="46dp"
+                    android:layout_height="54dp"
                     android:layout_marginTop="16dp"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:padding="4dp">
 
                     <RadioButton
                         android:id="@+id/entryTabRadio"
                         android:layout_width="0dp"
                         android:layout_height="match_parent"
-                        android:layout_marginEnd="8dp"
+                        android:layout_marginEnd="4dp"
                         android:layout_weight="1"
                         android:background="@drawable/type_toggle_background"
                         android:button="@null"
@@ -237,13 +238,14 @@
                         android:id="@+id/typeGroup"
                         android:layout_width="match_parent"
                         android:layout_height="44dp"
-                        android:orientation="horizontal">
+                        android:orientation="horizontal"
+                        android:padding="4dp">
 
                         <RadioButton
                             android:id="@+id/expenseRadio"
                             android:layout_width="0dp"
                             android:layout_height="match_parent"
-                            android:layout_marginEnd="8dp"
+                            android:layout_marginEnd="4dp"
                             android:layout_weight="1"
                             android:background="@drawable/type_toggle_background"
                             android:button="@null"
@@ -290,7 +292,7 @@
                             android:id="@+id/dateButton"
                             android:layout_width="wrap_content"
                             android:layout_height="50dp"
-                            android:background="@drawable/type_toggle_background"
+                            android:background="@drawable/input_background"
                             android:text=""
                             android:textSize="12sp"
                             android:singleLine="true"
@@ -679,6 +681,24 @@
                 android:gravity="center_vertical"
                 android:paddingStart="4dp"
                 android:text="📋  Full History"
+                android:textColor="@color/ink"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/border"
+                android:layout_marginBottom="4dp" />
+
+            <!-- Budget planner nav item -->
+            <TextView
+                android:id="@+id/drawerBudgetItem"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:gravity="center_vertical"
+                android:paddingStart="4dp"
+                android:text="🎯  Budget Planner"
                 android:textColor="@color/ink"
                 android:textSize="15sp"
                 android:textStyle="bold" />

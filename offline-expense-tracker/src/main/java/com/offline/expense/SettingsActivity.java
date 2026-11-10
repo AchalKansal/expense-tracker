@@ -105,6 +105,8 @@ public class SettingsActivity extends Activity {
     private View makeThemeSwatch(AccentTheme option) {
         View swatch = new View(this);
         boolean selected = option == accentTheme;
+        swatch.setContentDescription(option == AccentTheme.LIQUID_GLASS
+                ? "Liquid Glass theme" : option.name() + " theme");
         swatch.setBackground(theme.makeSwatchDrawable(option.swatchColor(), selected));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(theme.dp(32), theme.dp(32));
         params.setMarginEnd(theme.dp(12));
@@ -121,13 +123,14 @@ public class SettingsActivity extends Activity {
     }
 
     private void applyTheme() {
-        settingsRoot.setBackgroundColor(theme.colorBackground());
+        settingsRoot.setBackground(theme.makeBackgroundDrawable());
         settingsCard.setBackground(theme.makeCardDrawable());
         settingsTitle.setTextColor(theme.colorInk());
         appearanceHeading.setTextColor(theme.colorInk());
         appearanceDivider.setBackgroundColor(theme.colorBorder());
         darkModeLabel.setTextColor(theme.colorInk());
         themeColorLabel.setTextColor(theme.colorInk());
+        themeColorLabel.setText(theme.isLiquidGlass() ? "Theme color · Liquid Glass" : "Theme color");
         backButton.setTextColor(theme.colorInk());
         adContainer.setBackgroundColor(theme.colorSurface());
         getWindow().setStatusBarColor(theme.colorBackground());

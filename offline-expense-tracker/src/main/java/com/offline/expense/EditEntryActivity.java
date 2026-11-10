@@ -228,7 +228,7 @@ public class EditEntryActivity extends Activity {
     }
 
     private void applyTheme() {
-        editRoot.setBackgroundColor(theme.colorBackground());
+        editRoot.setBackground(theme.makeBackgroundDrawable());
         editCard.setBackground(theme.makeCardDrawable());
         editTitle.setTextColor(theme.colorInk());
         backButton.setTextColor(theme.colorInk());

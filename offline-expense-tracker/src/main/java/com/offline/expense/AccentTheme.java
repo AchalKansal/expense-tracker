@@ -31,6 +31,12 @@ enum AccentTheme {
             Color.rgb(200, 120, 40), Color.rgb(240, 190, 140),
             Color.rgb(235, 195, 150), Color.rgb(245, 215, 180),
             Color.rgb(110, 60, 15)
+    ),
+    LIQUID_GLASS(
+            Color.rgb(46, 92, 160), Color.rgb(174, 208, 255),
+            Color.rgb(90, 156, 224), Color.rgb(159, 204, 255),
+            Color.rgb(177, 224, 255), Color.rgb(224, 194, 255),
+            Color.rgb(22, 54, 105)
     );
 
     private final int primaryLight;
@@ -75,6 +81,10 @@ enum AccentTheme {
     /** Representative solid color shown for this option in the theme picker itself. */
     int swatchColor() {
         return accentLight;
+    }
+
+    boolean isLiquidGlass() {
+        return this == LIQUID_GLASS;
     }
 
     static AccentTheme fromPrefsValue(String value) {

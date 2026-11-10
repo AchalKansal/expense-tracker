@@ -770,7 +770,7 @@ public class HistoryActivity extends Activity {
     }
 
     private void applyTheme() {
-        historyRoot.setBackgroundColor(theme.colorBackground());
+        historyRoot.setBackground(theme.makeBackgroundDrawable());
         historyTitle.setTextColor(theme.colorInk());
         historySubtitle.setTextColor(theme.colorMuted());
         historyEmptyText.setTextColor(theme.colorMuted());

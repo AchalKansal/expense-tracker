@@ -63,6 +63,11 @@
             android:exported="false" />
 
         <activity
+            android:name=".BudgetActivity"
+            android:label="Budget planner"
+            android:exported="false" />
+
+        <activity
             android:name=".SharedExpensesActivity"
             android:label="Shared expenses"
             android:exported="false" />

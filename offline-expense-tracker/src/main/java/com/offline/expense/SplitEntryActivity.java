@@ -280,7 +280,7 @@ public class SplitEntryActivity extends Activity {
     }
 
     private void applyTheme() {
-        splitRoot.setBackgroundColor(theme.colorBackground());
+        splitRoot.setBackground(theme.makeBackgroundDrawable());
         splitCard.setBackground(theme.makeCardDrawable());
         splitTitle.setTextColor(theme.colorInk());
         backButton.setTextColor(theme.colorInk());

@@ -69,6 +69,7 @@ public class MainActivity extends Activity {
     private TextView drawerOverviewItem;
     private TextView drawerHistoryItem;
     private TextView drawerManageCategoriesItem;
+    private TextView drawerBudgetItem;
     private TextView drawerSharedExpensesItem;
     private TextView drawerSettingsItem;
     private TextView drawerViewAllText;
@@ -204,6 +205,7 @@ public class MainActivity extends Activity {
         drawerOverviewItem = findViewById(R.id.drawerOverviewItem);
         drawerHistoryItem = findViewById(R.id.drawerHistoryItem);
         drawerManageCategoriesItem = findViewById(R.id.drawerManageCategoriesItem);
+        drawerBudgetItem = findViewById(R.id.drawerBudgetItem);
         drawerSharedExpensesItem = findViewById(R.id.drawerSharedExpensesItem);
         drawerSettingsItem = findViewById(R.id.drawerSettingsItem);
         drawerViewAllText = findViewById(R.id.drawerViewAllText);
@@ -487,6 +489,11 @@ public class MainActivity extends Activity {
         drawerManageCategoriesItem.setOnClickListener(v -> {
             drawerLayout.closeDrawer(drawerScroll);
             startActivity(new Intent(this, ManageCategoriesActivity.class));
+        });
+
+        drawerBudgetItem.setOnClickListener(v -> {
+            drawerLayout.closeDrawer(drawerScroll);
+            startActivity(new Intent(this, BudgetActivity.class));
         });
 
         drawerSharedExpensesItem.setOnClickListener(v -> {
@@ -936,29 +943,30 @@ public class MainActivity extends Activity {
         int ink = theme.colorInk();
         int muted = theme.colorMuted();
 
-        rootScroll.setBackgroundColor(background);
-        rootContent.setBackgroundColor(background);
-        headerPanel.setBackgroundColor(background);
+        rootScroll.setBackground(theme.makeBackgroundDrawable());
+        rootContent.setBackground(theme.makeBackgroundDrawable());
+        headerPanel.setBackground(theme.makeBackgroundDrawable());
 
         summaryCard.setBackground(theme.makeCardDrawable());
-        todaySummaryCell.setBackground(theme.makeInputDrawable());
-        monthSummaryCell.setBackground(theme.makeInputDrawable());
-        paceSummaryCell.setBackground(theme.makeInputDrawable());
+        todaySummaryCell.setBackground(theme.makeContentSurfaceDrawable());
+        monthSummaryCell.setBackground(theme.makeContentSurfaceDrawable());
+        paceSummaryCell.setBackground(theme.makeContentSurfaceDrawable());
         entrySection.setBackground(theme.makeCardDrawable());
         chartSection.setBackground(theme.makeCardDrawable());
-        paceInsightCard.setBackground(theme.makeInputDrawable());
+        paceInsightCard.setBackground(theme.makeContentSurfaceDrawable());
         paceBarView.setThemeColors(theme.colorBorder(), ink);
         privacyInfoText.setBackground(theme.makeCardDrawable());
         privacyInfoText.setPadding(theme.dp(12), theme.dp(12), theme.dp(12), theme.dp(12));
         adContainer.setBackgroundColor(theme.colorSurface());
 
         // Drawer theming
-        drawerScroll.setBackgroundColor(background);
-        drawerView.setBackgroundColor(background);
+        drawerScroll.setBackground(theme.makeBackgroundDrawable());
+        drawerView.setBackground(theme.makeBackgroundDrawable());
         drawerTitleText.setTextColor(ink);
         drawerOverviewItem.setTextColor(ink);
         drawerHistoryItem.setTextColor(ink);
         drawerManageCategoriesItem.setTextColor(ink);
+        drawerBudgetItem.setTextColor(ink);
         drawerSharedExpensesItem.setTextColor(ink);
         drawerSettingsItem.setTextColor(ink);
         drawerViewAllText.setTextColor(theme.colorAccent());
@@ -999,8 +1007,21 @@ public class MainActivity extends Activity {
 
         // Date button — icon only, no active gradient
         dateButton.setTextColor(theme.colorInk());
-        dateButton.setBackground(theme.makeToggleDrawable());
+        dateButton.setBackground(theme.makeInputDrawable());
         updateDateButtonLabel();
+
+        mainTabGroup.setBackground(theme.makeGlassBarDrawable());
+        typeGroup.setBackground(theme.makeGlassBarDrawable());
+        float glassElevation = theme.isLiquidGlass() ? theme.dp(6) : 0;
+        mainTabGroup.setElevation(glassElevation);
+        typeGroup.setElevation(glassElevation);
+        applyGlassPressFeedback(menuButton);
+        applyGlassPressFeedback(dateButton);
+        applyGlassPressFeedback(addButton);
+        applyGlassPressFeedback(entryTabRadio);
+        applyGlassPressFeedback(chartTabRadio);
+        applyGlassPressFeedback(expenseRadio);
+        applyGlassPressFeedback(incomeRadio);
 
         // Chip styles refresh
         refreshChipStyles();
@@ -1041,7 +1062,25 @@ public class MainActivity extends Activity {
     private void styleToggle(TextView view) {
         boolean checked = view instanceof RadioButton && ((RadioButton) view).isChecked();
         view.setTextColor(checked ? theme.colorOnAccentFill() : theme.colorInk());
-        view.setBackground(checked ? theme.makeActiveToggleDrawable() : theme.makeToggleDrawable());
+        view.setBackground(checked ? theme.makeActiveToggleDrawable()
+                : (theme.isLiquidGlass() ? theme.makeClearControlDrawable() : theme.makeToggleDrawable()));
+    }
+
+    /** A small physical response makes glass controls feel separate from the content beneath. */
+    private void applyGlassPressFeedback(View view) {
+        if (!theme.isLiquidGlass()) {
+            view.setOnTouchListener(null);
+            return;
+        }
+        view.setOnTouchListener((v, event) -> {
+            if (event.getAction() == android.view.MotionEvent.ACTION_DOWN) {
+                v.animate().scaleX(.96f).scaleY(.96f).setDuration(90).start();
+            } else if (event.getAction() == android.view.MotionEvent.ACTION_UP
+                    || event.getAction() == android.view.MotionEvent.ACTION_CANCEL) {
+                v.animate().scaleX(1f).scaleY(1f).setDuration(180).start();
+            }
+            return false;
+        });
     }
 
     private String formatNote(String note) {

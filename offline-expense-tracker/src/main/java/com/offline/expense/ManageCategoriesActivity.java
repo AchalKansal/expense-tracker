@@ -59,17 +59,17 @@ public class ManageCategoriesActivity extends Activity {
     private void buildUI() {
         LinearLayout outerRoot = new LinearLayout(this);
         outerRoot.setOrientation(LinearLayout.VERTICAL);
-        outerRoot.setBackgroundColor(theme.colorBackground());
+        outerRoot.setBackground(theme.makeBackgroundDrawable());
 
         ScrollView scroll = new ScrollView(this);
-        scroll.setBackgroundColor(theme.colorBackground());
+        scroll.setBackground(theme.makeBackgroundDrawable());
         scroll.setFillViewport(true);
         scroll.setLayoutParams(new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
         rootContent = new LinearLayout(this);
         rootContent.setOrientation(LinearLayout.VERTICAL);
-        rootContent.setBackgroundColor(theme.colorBackground());
+        rootContent.setBackground(theme.makeBackgroundDrawable());
         int p = theme.dp(18);
         rootContent.setPadding(p, p, p, p);
 

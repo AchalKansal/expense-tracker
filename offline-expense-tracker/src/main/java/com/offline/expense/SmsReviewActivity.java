@@ -303,7 +303,7 @@ public class SmsReviewActivity extends Activity {
     }
 
     private void applyTheme() {
-        smsReviewRoot.setBackgroundColor(theme.colorBackground());
+        smsReviewRoot.setBackground(theme.makeBackgroundDrawable());
         smsReviewTitle.setTextColor(theme.colorInk());
         smsReviewSubtitle.setTextColor(theme.colorMuted());
         suggestionsEmptyText.setTextColor(theme.colorMuted());

@@ -16,12 +16,13 @@ import java.util.TimeZone;
 
 final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
     private static final String DATABASE_NAME = "offline_expenses.db";
-    private static final int DATABASE_VERSION = 7;
+    private static final int DATABASE_VERSION = 8;
     private static final String TABLE_ENTRIES = "entries";
     private static final String TABLE_CATEGORIES = "categories";
     private static final String TABLE_SMS_SUGGESTIONS = "sms_suggestions";
     private static final String TABLE_MERCHANT_CATEGORIES = "merchant_categories";
     private static final String TABLE_SHARED_EXPENSES = "shared_expenses";
+    private static final String TABLE_BUDGETS = "budgets";
 
     static final String PAID_BY_ME = "me";
     static final String PAID_BY_FRIEND = "friend";
@@ -55,6 +56,7 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
         createSmsSuggestionsTable(db);
         createMerchantCategoriesTable(db);
         createSharedExpensesTable(db);
+        createBudgetsTable(db);
         seedDefaultCategories(db);
     }
 
@@ -78,6 +80,9 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 7) {
             createSharedExpensesTable(db);
+        }
+        if (oldVersion < 8) {
+            createBudgetsTable(db);
         }
     }
 
@@ -180,6 +185,14 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
                 ")");
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_shared_expenses_friend ON " +
                 TABLE_SHARED_EXPENSES + "(friend_name, settled)");
+    }
+
+    private void createBudgetsTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + TABLE_BUDGETS + " (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "category TEXT NOT NULL COLLATE NOCASE UNIQUE, " +
+                "amount REAL NOT NULL CHECK(amount > 0)" +
+                ")");
     }
 
     /** Adds a split expense: a normal entry for the user's own share, plus the shared-expense bookkeeping row. */
@@ -464,6 +477,41 @@ final class ExpenseDatabaseHelper extends SQLiteOpenHelper {
         ContentValues entryCv = new ContentValues();
         entryCv.put("category", newName);
         db.update(TABLE_ENTRIES, entryCv, "type = ? AND category = ?", new String[]{type, oldName});
+        if (EntryTypes.EXPENSE.equals(type)) {
+            ContentValues budgetCv = new ContentValues();
+            budgetCv.put("category", newName);
+            db.update(TABLE_BUDGETS, budgetCv, "category = ?", new String[]{oldName});
+        }
+    }
+
+    void saveBudget(String category, double amount) {
+        ContentValues values = new ContentValues();
+        values.put("category", category);
+        values.put("amount", amount);
+        getWritableDatabase().insertWithOnConflict(TABLE_BUDGETS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    void deleteBudget(String category) {
+        getWritableDatabase().delete(TABLE_BUDGETS, "category = ?", new String[]{category});
+    }
+
+    List<CategoryBudget> getCategoryBudgets(long startMillis, long endMillis) {
+        List<CategoryBudget> budgets = new ArrayList<>();
+        Cursor cursor = getReadableDatabase().rawQuery(
+                "SELECT b.category, b.amount, COALESCE(SUM(e.amount), 0) AS spent " +
+                        "FROM " + TABLE_BUDGETS + " b LEFT JOIN " + TABLE_ENTRIES + " e " +
+                        "ON e.category = b.category COLLATE NOCASE AND e.type = ? " +
+                        "AND e.created_at >= ? AND e.created_at < ? " +
+                        "GROUP BY b.id, b.category, b.amount ORDER BY b.category COLLATE NOCASE",
+                new String[]{EntryTypes.EXPENSE, String.valueOf(startMillis), String.valueOf(endMillis)});
+        try {
+            while (cursor.moveToNext()) {
+                budgets.add(new CategoryBudget(cursor.getString(0), cursor.getDouble(1), cursor.getDouble(2)));
+            }
+        } finally {
+            cursor.close();
+        }
+        return budgets;
     }
 
     List<String> getMostUsedCategories(String type, int limit) {
